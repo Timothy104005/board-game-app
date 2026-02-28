@@ -1,5 +1,4 @@
 import type { Action, PlayerId, ReplayEvent, State } from "../engine/contracts.js";
-import { LcgRng } from "../engine/invariantGate.js";
 import type { GameModule } from "../games/types.js";
 import type { Bot } from "../bots/types.js";
 
@@ -70,6 +69,36 @@ export function runMatch<S extends State = State, A extends Action = Action>(inp
   };
 }
 
+class LcgRng {
+  public readonly seed: string;
+  private state: number;
+  private cursorValue: number;
+
+  public constructor(seed: string, state?: number, cursor = 0) {
+    this.seed = seed;
+    this.state = state ?? seedToUint32(seed);
+    this.cursorValue = cursor;
+  }
+
+  public get cursor(): number {
+    return this.cursorValue;
+  }
+
+  public nextFloat(): number {
+    this.state = (Math.imul(this.state, 1664525) + 1013904223) >>> 0;
+    this.cursorValue += 1;
+    return this.state / 0x100000000;
+  }
+
+  public nextInt(minInclusive: number, maxInclusive: number): number {
+    if (!Number.isInteger(minInclusive) || !Number.isInteger(maxInclusive) || maxInclusive < minInclusive) {
+      throw new Error("nextInt expects integer bounds with maxInclusive >= minInclusive.");
+    }
+    const span = maxInclusive - minInclusive + 1;
+    return minInclusive + Math.floor(this.nextFloat() * span);
+  }
+}
+
 function inferCurrentPlayer(state: State, turn: number): PlayerId {
   const asObj = state as Record<string, unknown>;
   if (typeof asObj.currentPlayer === "string") {
@@ -137,4 +166,13 @@ function stableStringify(value: unknown): string {
     return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`;
   }
   return JSON.stringify(String(value));
+}
+
+function seedToUint32(seed: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash;
 }
