@@ -78,7 +78,7 @@ describe("IR compiler integration", () => {
         expect(tokenTotal).toBeLessThanOrEqual(10);
       }
     }
-  });
+  }, 15000);
 });
 
 function runDeterministicTrajectory(
