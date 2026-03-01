@@ -19,8 +19,8 @@ interface CommandResult {
   logPath: string;
 }
 
-const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
+const npmCmd = "npm";
+const npxCmd = "npx";
 const timestamp = formatTimestamp(new Date());
 const repoRoot = process.cwd();
 const runRoot = resolve(repoRoot, "artifacts", "soak", timestamp);
@@ -120,10 +120,10 @@ function buildCommandSpecs(outputDir: string): CommandSpec[] {
 function runCommand(spec: CommandSpec, index: number, logDir: string): CommandResult {
   const startedAt = Date.now();
   const commandString = joinCommand(spec.command, spec.args);
-  const proc = spawnSync(spec.command, spec.args, {
+  const proc = spawnSync(commandString, {
     cwd: repoRoot,
     encoding: "utf8",
-    shell: false
+    shell: true
   });
   const durationMs = Date.now() - startedAt;
 
