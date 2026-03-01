@@ -6,6 +6,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify:soak": "tsx scripts/verifySoak.ts",
     "sim:tictactoe": "tsx scripts/simulate.ts tictactoe",
     "sim:splendor": "tsx scripts/simulate.ts splendor",
     "rb:2ir": "tsx scripts/rulebook2ir.ts",
