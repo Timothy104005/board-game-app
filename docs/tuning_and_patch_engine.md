@@ -1,62 +1,118 @@
-# Milestone 4 Design Spec: Tuning + Restricted Patch Engine
+# Milestone 4: Tuning + Restricted Patch Engine
 
-## 1) Objective Functions
+This milestone introduces a deterministic tuning loop over IR using restricted patch operations.
+It produces reproducible A/B reports without changing core game runtime architecture.
 
-????????:
-- Fairness:??????(`abs(first_player_advantage)`)
-- Turn Length:?????????????
-- Strategy Concentration:????????
+## Objective Function
 
-????????:
-- `score = w1*fairness_penalty + w2*turn_penalty + w3*concentration_penalty`
+The tuner computes derived metrics from simulation batch output:
 
-## 2) Baseline Search Method
+- `winRateBySeat`
+- `drawRate`
+- `avgTurns`
+- `firstPlayerAdvantage = winRate("0") - mean(winRateBySeat)`
+- `actionEntropy = -sum(p * log2(p))`
 
-???????:
-1. ??? IR ?????? patch(??? seed ??)?
-2. ?? patch ???? IR?
-3. ????????? metrics?
-4. ????????,?????(evolutionary-style iteration)?
-5. ??????????????
+Scalar objective (lower is better):
 
-## 3) Restricted Patch Operations and Safety
+```text
+fairnessPenalty      = stddev(winRateBySeat)
+firstPlayerPenalty   = abs(firstPlayerAdvantage)
+turnPenalty          = abs(avgTurns - targetAvgTurns) / max(1, targetAvgTurns)
+entropyPenalty       = -actionEntropy
 
-???:
+score =
+  fairnessWeight * fairnessPenalty +
+  firstPlayerWeight * firstPlayerPenalty +
+  turnTargetWeight * turnPenalty +
+  entropyWeight * entropyPenalty
+```
+
+Default weights:
+
+- `fairnessWeight = 1`
+- `firstPlayerWeight = 1`
+- `turnTargetWeight = 1`
+- `entropyWeight = 1`
+- `targetAvgTurns = 20`
+
+## Patch Space (v0)
+
+Current implemented space: `mini_splendor`.
+
+Knobs:
+
+- `tokenLimit` in `[8,12]`
+- `endScoreTarget` in `[10,20]` (`end.kind = "score_at_least"`)
+- bounded card tweaks:
+  - cost delta `±1`, clamped `[0,7]`
+  - points delta `±1`, clamped `[0,5]`
+
+Constraints:
+
+- card pool size unchanged
+- all costs and points non-negative and within bounds
+- `tokenLimit >= 0`
+- if `end.kind = "score_at_least"`, then `target >= 1`
+
+## Restricted Patch Engine
+
+Supported operations:
+
 - `set`
 - `append`
 - `merge`
 
-????:
-- ????????(?? `/meta/*`, `/end/*`, `/actions/*`, `/state/public/*`)
-- ???????????????
-- `append` ???????
-- `merge` ???????,? shallow merge
-- ?? patch ??? schema/checker
+Safety guardrails:
 
-## 4) A/B Report Format
+- path-based updates only (JSON pointer style)
+- invalid operations are rejected with deterministic errors
+- candidate IR must pass schema parse + checker before simulation
+- patch-space constraints run after checker
 
-?????? before/after ??:
+## Deterministic Tuning Flow
 
-```json
-{
-  "seedSet": ["s1", "s2", "s3"],
-  "matchesPerSeed": 200,
-  "before": {
-    "winRate": {"0": 0.58, "1": 0.34, "draw": 0.08},
-    "averageTurns": 9.1,
-    "concentration": 0.41
-  },
-  "after": {
-    "winRate": {"0": 0.52, "1": 0.40, "draw": 0.08},
-    "averageTurns": 8.4,
-    "concentration": 0.36
-  },
-  "acceptance": {
-    "firstPlayerAdvantageMax": 0.05,
-    "turnRange": [6, 12],
-    "concentrationMax": 0.38
-  }
-}
+1. Validate baseline IR (schema + checker + compile).
+2. Simulate baseline with fixed seed and deterministic bot setup.
+3. Generate candidates from patch space with seed-derived PRNG.
+4. For each candidate:
+   - apply patch
+   - validate schema/checker/constraints
+   - compile and simulate
+   - compute objective
+5. Keep strictly better candidate (`newScore < bestScore`).
+6. Stop early when no improvement reaches `stagnationPatience`.
+
+## Reproducing a Tuning Run
+
+Smoke run (fast):
+
+```bash
+npm run tune:smoke
 ```
 
-?????????,???? doc-only epic ??? tuning ????
+Full run:
+
+```bash
+npm run tune:splendor
+```
+
+Both commands write to:
+
+- `artifacts/tuning/YYYYMMDD-HHMMSS/`
+
+## A/B Report Outputs
+
+Each run writes:
+
+- `report.md`
+- `report.json`
+- `best.patch.json`
+- `best.ir.json`
+
+How to read:
+
+- compare baseline vs best objective score
+- inspect objective breakdown penalties
+- review patch ops applied to produce best candidate
+- verify reproducibility block (seed, iter/candidate counts, sim config, bot mode)
