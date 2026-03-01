@@ -1,1 +1,10 @@
+node_modules/
+coverage/
 artifacts/
+dist/
+build/
+.turbo/
+.vite/
+.cache/
+*.log
+.env*
