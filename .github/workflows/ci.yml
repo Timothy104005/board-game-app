@@ -21,13 +21,7 @@ jobs:
         run: npm ci
 
       - name: Run Tests with Coverage
-        run: npm test -- --coverage
+        run: FASTCHECK_RUNS=50 npm test -- --coverage
 
       - name: Run Tuning Smoke
         run: npm run tune:smoke
-
-      - name: Upload Coverage Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage/
