@@ -27,11 +27,17 @@ if (!space) {
   process.exit(1);
 }
 
-try {
+run().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`[tune] failed: ${message}`);
+  process.exit(1);
+});
+
+async function run(): Promise<void> {
   const fullIrPath = resolve(process.cwd(), irPath);
   const baseIr = JSON.parse(readFileSync(fullIrPath, "utf8")) as unknown;
 
-  const result = tuneIR({
+  const result = await tuneIR({
     baseIr,
     space,
     seed,
@@ -88,10 +94,6 @@ try {
   console.log(`[tune] bestObjective=${result.best.objective.score.toFixed(6)}`);
   console.log(`[tune] outDir=${outDir}`);
   process.exit(0);
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`[tune] failed: ${message}`);
-  process.exit(1);
 }
 
 function resolveSpace(spaceName: string): typeof miniSplendorSpace | null {

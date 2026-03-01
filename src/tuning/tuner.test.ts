@@ -13,9 +13,9 @@ function loadMiniSplendorFixture(): GameIRv0 {
 }
 
 describe("tuner", () => {
-  it("is deterministic under fixed inputs", () => {
+  it("is deterministic under fixed inputs", async () => {
     const base = loadMiniSplendorFixture();
-    const first = tuneIR({
+    const first = await tuneIR({
       baseIr: base,
       space: miniSplendorSpace,
       seed: "tuner-det",
@@ -24,7 +24,7 @@ describe("tuner", () => {
       simConfig: { matches: 10, maxTurns: 40 },
       stagnationPatience: 2
     });
-    const second = tuneIR({
+    const second = await tuneIR({
       baseIr: base,
       space: miniSplendorSpace,
       seed: "tuner-det",
@@ -39,9 +39,9 @@ describe("tuner", () => {
     expect(first.best.objective.score).toBe(second.best.objective.score);
   });
 
-  it("returns baseline and chooses best objective no worse than baseline", () => {
+  it("returns baseline and chooses best objective no worse than baseline", async () => {
     const base = loadMiniSplendorFixture();
-    const result = tuneIR({
+    const result = await tuneIR({
       baseIr: base,
       space: miniSplendorSpace,
       seed: "tuner-smoke",
@@ -57,7 +57,7 @@ describe("tuner", () => {
     expect(Array.isArray(result.rejected)).toBe(true);
   });
 
-  it("records rejected candidates deterministically without throwing", () => {
+  it("records rejected candidates deterministically without throwing", async () => {
     const base = loadMiniSplendorFixture();
     const invalidSpace: PatchSpace = {
       id: "invalid-space",
@@ -72,7 +72,7 @@ describe("tuner", () => {
       constraints: () => ({ ok: true, errors: [] })
     };
 
-    const result = tuneIR({
+    const result = await tuneIR({
       baseIr: base,
       space: invalidSpace,
       seed: "tuner-reject",
