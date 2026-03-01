@@ -1,5 +1,5 @@
-import { gameIRv0Schema } from "./schema.js";
-import type { GameIRv0 } from "./types.js";
+import { gameIRv0Schema } from "./schema.ts";
+import type { GameIRv0 } from "./types.ts";
 
 const SUPPORTED_ACTION_KINDS = new Set([
   "tictactoe_place",

@@ -1,8 +1,8 @@
 import type { Action, PlayerId, RNG, StepResult } from "../engine/contracts.js";
 import type { GameModule } from "../games/types.js";
-import { checkIR } from "./checker.js";
-import { gameIRv0Schema } from "./schema.js";
-import type { GameIRv0 } from "./types.js";
+import { checkIR } from "./checker.ts";
+import { gameIRv0Schema } from "./schema.ts";
+import type { GameIRv0 } from "./types.ts";
 
 type CompiledActionKind =
   | "tictactoe_place"
