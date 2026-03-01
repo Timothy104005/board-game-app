@@ -2,16 +2,16 @@
 
 | Milestone | Status | Scope | Evidence | Next Actions |
 |---|---|---|---|---|
-| M1 ???????? | DONE | Engine contract, invariant gate,???? | `src/engine/*`, `src/games/*`, `npm test -- --coverage` | ??????? deterministic ?? |
-| M2 IR v0 ? Compiler | DONE | schema/checker/compiler, integration tests | `src/ir/*`, `src/ir/compiler.integration.test.ts` | ?? action ????? checker ??? |
-| M3 Rulebook Front-End ?? | DONE | normalize/segment/signals/draft/gaps/patch + rb:run | `src/rulebook/*`, `scripts/rulebook2ir.ts`, `scripts/rulebookRun.ts` | ????????????? |
-| M4 ????? Patch Engine | TODO | ???????A/B ???patch ???? | `docs/tuning_and_patch_engine.md` | 1) ?? tuner baseline 2) ?????? 3) ?? before/after ?? |
-| M5 ???? SaaS | TODO | Web UI?queue workers????????? | `docs/productization.md` | 1) ???? SaaS ?? 2) worker queue 3) dashboard/replay viewer |
+| M1 Engine Contract + Invariants | DONE | Engine contract, invariant gate, deterministic step model | Commands: `npm test -- --coverage`<br>Artifacts: `artifacts/replays/*.json` | Keep deterministic checks green while expanding games |
+| M2 IR v0 + Compiler | DONE | Zod schema, checker, compileToGameModule, integration tests | Commands: `npm test -- --coverage`, `npm run rb:run:tictactoe`<br>Artifacts: `artifacts/rulebook_run/*.ir.json` | Add more action kinds with checker parity |
+| M3 Rulebook Pipeline + Simulation Workflow | TODO | Rulebook extraction quality, ops hardening, reviewer workflow completion | Commands: `npm run rb:run:tictactoe`, `npm run rb:run:pig`<br>Artifacts: `artifacts/rulebook_run/*.sim.summary.json` | Complete ops polish, soak verification, CI visibility |
+| M4 Tuning + Restricted Patch Engine | TODO | Fairness/turn-length tuning and safe patch policy | Commands: planned A/B runs with fixed seeds<br>Artifacts: `artifacts/soak/*/summary.json` | Implement tuner baseline and before/after report automation |
+| M5 Productization (Web SaaS) | TODO | Hosted workflow, queue workers, storage and dashboard | Commands: CI + production deployment checks (future)<br>Artifacts: versioned project outputs | Build minimal web product + worker queue + audit controls |
 
 ## Checklist
 
-- [x] M1: ???? + no-dead-end / determinism / bounds
+- [x] M1: Engine contract + no-dead-end/determinism/resource-bound gates
 - [x] M2: IR schema/checker/compiler + integration tests
-- [x] M3: rulebook -> IR -> compile -> simulate CLI
-- [ ] M4: ????????????
-- [ ] M5: SaaS ?????????
+- [ ] M3: Rulebook workflow operational hardening and packaging
+- [ ] M4: Tuning and restricted patch engine automation
+- [ ] M5: SaaS productization and operations
