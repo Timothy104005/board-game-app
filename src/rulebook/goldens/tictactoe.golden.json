@@ -1,0 +1,106 @@
+{
+  "recognizer": "tictactoe",
+  "irDraft": {
+    "meta": {
+      "id": "tictactoe_ir",
+      "name": "Tic-Tac-Toe IR",
+      "playersMin": 2,
+      "playersMax": 2
+    },
+    "rng": {
+      "seedable": true
+    },
+    "state": {
+      "public": {
+        "phase": "main",
+        "stage": "action",
+        "turn": 0,
+        "currentPlayer": "0",
+        "board": [
+          [
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null
+          ]
+        ],
+        "winner": null
+      },
+      "players": {
+        "0": {
+          "id": "0",
+          "mark": "X",
+          "points": 0
+        },
+        "1": {
+          "id": "1",
+          "mark": "O",
+          "points": 0
+        }
+      }
+    },
+    "turn": {
+      "order": "round_robin",
+      "phases": [
+        "main"
+      ]
+    },
+    "actions": [
+      {
+        "kind": "tictactoe_place",
+        "params": {
+          "x": [
+            0,
+            1,
+            2
+          ],
+          "y": [
+            0,
+            1,
+            2
+          ]
+        }
+      }
+    ],
+    "end": {
+      "kind": "turn_limit",
+      "maxTurns": 9
+    },
+    "scoring": {
+      "kind": "zero_sum"
+    }
+  },
+  "gapSummary": {
+    "errors": 0,
+    "warnings": 1
+  },
+  "gaps": [
+    {
+      "filePointer": "/meta/playersMin",
+      "severity": "warning",
+      "message": "Ambiguous player count in rulebook text.",
+      "suggestedFix": "Specify exact player count in the rulebook or set meta.playersMin/meta.playersMax manually."
+    }
+  ],
+  "checker": {
+    "errors": [],
+    "warnings": []
+  },
+  "compiledMeta": {
+    "id": "tictactoe_ir",
+    "name": "Tic-Tac-Toe IR",
+    "initialLegalActionTypes": [
+      "tictactoe_place"
+    ],
+    "initialLegalActionCount": 9
+  }
+}

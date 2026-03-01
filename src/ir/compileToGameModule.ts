@@ -1,16 +1,27 @@
 import type { Action, PlayerId, RNG, StepResult } from "../engine/contracts.js";
+import type { GameModule } from "../games/types.js";
 import { checkIR } from "./checker.js";
 import { gameIRv0Schema } from "./schema.js";
 import type { GameIRv0 } from "./types.js";
-import type { GameModule } from "../games/types.js";
 
-type CompiledActionKind = "tictactoe_place" | "take_tokens" | "buy_card";
+type CompiledActionKind =
+  | "tictactoe_place"
+  | "take_tokens"
+  | "buy_card"
+  | "connect4_drop"
+  | "take_from_pile"
+  | "pig_roll"
+  | "pig_hold";
 
 interface CompiledActionPayload {
   x?: number;
   y?: number;
   colors?: string[];
   cardId?: string;
+  column?: number;
+  pileIndex?: number;
+  count?: number;
+  roll?: number;
   diff?: Record<string, unknown>;
 }
 
@@ -44,6 +55,12 @@ export interface CompiledState {
   players: Record<string, CompiledPlayerState>;
 }
 
+interface NimSpec {
+  minTake: number;
+  maxTake: number;
+  pileIndexes?: number[];
+}
+
 const NON_GOLD_COLORS = ["white", "blue", "green", "red", "black"] as const;
 
 export function compileToGameModule(irInput: unknown): GameModule<CompiledState, CompiledAction> {
@@ -59,6 +76,8 @@ export function compileToGameModule(irInput: unknown): GameModule<CompiledState,
   const ir = parseResult.data;
   const supportedActionKinds = new Set(ir.actions.map((action) => action.kind));
   const takeColors = extractTakeColors(ir);
+  const connect4Columns = extractConnect4Columns(ir);
+  const nimSpec = extractNimSpec(ir);
 
   const generateLegalActions = (state: CompiledState): CompiledAction[] => {
     const actions: CompiledAction[] = [];
@@ -70,11 +89,20 @@ export function compileToGameModule(irInput: unknown): GameModule<CompiledState,
     if (supportedActionKinds.has("tictactoe_place")) {
       actions.push(...enumerateTicTacToeActions(state));
     }
+    if (supportedActionKinds.has("connect4_drop")) {
+      actions.push(...enumerateConnect4Actions(state, connect4Columns));
+    }
     if (supportedActionKinds.has("take_tokens")) {
       actions.push(...enumerateTakeTokenActions(state, actor, takeColors));
     }
     if (supportedActionKinds.has("buy_card")) {
       actions.push(...enumerateBuyCardActions(state, actor));
+    }
+    if (supportedActionKinds.has("take_from_pile")) {
+      actions.push(...enumerateTakeFromPileActions(state, nimSpec));
+    }
+    if (supportedActionKinds.has("pig_roll") || supportedActionKinds.has("pig_hold")) {
+      actions.push(...enumeratePigActions(state));
     }
     return actions;
   };
@@ -88,15 +116,30 @@ export function compileToGameModule(irInput: unknown): GameModule<CompiledState,
       return true;
     }
     if (ir.end.kind === "score_at_least") {
+      const target = ir.end.target;
       const playerIds = Object.keys(state.players);
-      if (playerIds.some((playerId) => state.players[playerId].points >= ir.end.target)) {
+      if (playerIds.some((playerId) => state.players[playerId].points >= target)) {
         return true;
       }
     }
 
     if (supportedActionKinds.has("tictactoe_place")) {
       const board = getBoard(state);
-      if (board && (getWinnerId(state, board) !== null || isBoardFull(board))) {
+      if (board && (getTicTacToeWinnerId(state, board) !== null || isBoardFull(board))) {
+        return true;
+      }
+    }
+
+    if (supportedActionKinds.has("connect4_drop")) {
+      const board = getBoard(state);
+      if (board && (getConnect4WinnerId(state, board) !== null || isBoardFull(board))) {
+        return true;
+      }
+    }
+
+    if (supportedActionKinds.has("take_from_pile")) {
+      const piles = getPiles(state);
+      if (piles && piles.every((pile) => pile === 0)) {
         return true;
       }
     }
@@ -131,10 +174,14 @@ export function compileToGameModule(irInput: unknown): GameModule<CompiledState,
       const next = deepClone(state);
       const actor = next.players[action.actor];
       let diff: Record<string, unknown> = {};
+      let advancePlayer = true;
 
       switch (action.type) {
         case "tictactoe_place":
           diff = applyTicTacToePlace(next, actor, action);
+          break;
+        case "connect4_drop":
+          diff = applyConnect4Drop(next, actor, action);
           break;
         case "take_tokens":
           diff = applyTakeTokens(next, actor, action);
@@ -142,8 +189,23 @@ export function compileToGameModule(irInput: unknown): GameModule<CompiledState,
         case "buy_card":
           diff = applyBuyCard(next, actor, action);
           break;
+        case "take_from_pile":
+          diff = applyTakeFromPile(next, actor, action, nimSpec);
+          break;
+        case "pig_roll": {
+          const result = applyPigRoll(next, actor, action, rng);
+          diff = result.diff;
+          advancePlayer = result.advancePlayer;
+          break;
+        }
+        case "pig_hold": {
+          const result = applyPigHold(next, actor, action);
+          diff = result.diff;
+          advancePlayer = result.advancePlayer;
+          break;
+        }
         default:
-          exhaustiveCheck(action);
+          throw new Error(`Unsupported action type: ${String(action.type)}`);
       }
 
       if (totalPlayerTokens(actor) > getTokenLimit(next)) {
@@ -156,7 +218,9 @@ export function compileToGameModule(irInput: unknown): GameModule<CompiledState,
         next.phase = "end";
         next.stage = null;
       } else {
-        next.currentPlayer = getNextPlayer(next);
+        if (advancePlayer) {
+          next.currentPlayer = getNextPlayer(next);
+        }
         next.phase = ir.turn.phases[0];
         next.stage = "action";
       }
@@ -180,7 +244,7 @@ export function compileToGameModule(irInput: unknown): GameModule<CompiledState,
       } as StepResult<CompiledState, CompiledAction>;
     },
     isTerminal: (state: CompiledState) => isTerminalState(state),
-    score: (state: CompiledState) => scoreState(state, ir, supportedActionKinds)
+    score: (state: CompiledState) => scoreState(state, ir)
   };
 
   return module;
@@ -241,6 +305,32 @@ function enumerateTicTacToeActions(state: CompiledState): CompiledAction[] {
       }
     }
   }
+  return actions;
+}
+
+function enumerateConnect4Actions(state: CompiledState, configuredColumns: number[]): CompiledAction[] {
+  const board = getBoard(state);
+  if (!board || board.length === 0 || board[0].length === 0) {
+    return [];
+  }
+
+  const width = board[0].length;
+  const candidateColumns = configuredColumns.length > 0 ? configuredColumns : [...Array(width).keys()];
+  const actions: CompiledAction[] = [];
+
+  for (const column of candidateColumns) {
+    if (!Number.isInteger(column) || column < 0 || column >= width) {
+      continue;
+    }
+    if (board[0][column] === null) {
+      actions.push({
+        type: "connect4_drop",
+        actor: state.currentPlayer,
+        payload: { column }
+      });
+    }
+  }
+
   return actions;
 }
 
@@ -311,6 +401,56 @@ function enumerateBuyCardActions(state: CompiledState, actor: CompiledPlayerStat
   return actions;
 }
 
+function enumerateTakeFromPileActions(state: CompiledState, spec: NimSpec | null): CompiledAction[] {
+  if (!spec) {
+    return [];
+  }
+  const piles = getPiles(state);
+  if (!piles) {
+    return [];
+  }
+
+  const indexes = spec.pileIndexes?.length ? spec.pileIndexes : [...Array(piles.length).keys()];
+  const actions: CompiledAction[] = [];
+  for (const pileIndex of indexes) {
+    if (!Number.isInteger(pileIndex) || pileIndex < 0 || pileIndex >= piles.length) {
+      continue;
+    }
+    const pileCount = piles[pileIndex];
+    if (pileCount <= 0) {
+      continue;
+    }
+    for (let count = spec.minTake; count <= spec.maxTake && count <= pileCount; count += 1) {
+      actions.push({
+        type: "take_from_pile",
+        actor: state.currentPlayer,
+        payload: { pileIndex, count }
+      });
+    }
+  }
+  return actions;
+}
+
+function enumeratePigActions(state: CompiledState): CompiledAction[] {
+  const actions: CompiledAction[] = [
+    {
+      type: "pig_roll",
+      actor: state.currentPlayer,
+      payload: {}
+    }
+  ];
+
+  const turnTotal = asNumber(state.public.turnTotal, 0);
+  if (turnTotal > 0) {
+    actions.push({
+      type: "pig_hold",
+      actor: state.currentPlayer,
+      payload: {}
+    });
+  }
+  return actions;
+}
+
 function applyTicTacToePlace(
   state: CompiledState,
   actor: CompiledPlayerState,
@@ -333,7 +473,7 @@ function applyTicTacToePlace(
   const mark = actor.mark ?? "X";
   board[y][x] = mark;
 
-  const winnerId = getWinnerId(state, board);
+  const winnerId = getTicTacToeWinnerId(state, board);
   state.public.winner = winnerId;
   if (winnerId) {
     state.players[winnerId].points = Math.max(1, state.players[winnerId].points);
@@ -343,6 +483,50 @@ function applyTicTacToePlace(
     kind: "tictactoe_place",
     x,
     y,
+    mark,
+    winner: winnerId
+  };
+}
+
+function applyConnect4Drop(
+  state: CompiledState,
+  actor: CompiledPlayerState,
+  action: CompiledAction
+): Record<string, unknown> {
+  const board = getBoard(state);
+  if (!board || board.length === 0 || board[0].length === 0) {
+    throw new Error("connect4 board is missing.");
+  }
+
+  const column = action.payload?.column;
+  if (!isInteger(column) || column < 0 || column >= board[0].length) {
+    throw new Error("connect4_drop requires valid column.");
+  }
+
+  let row = -1;
+  for (let y = board.length - 1; y >= 0; y -= 1) {
+    if (board[y][column] === null) {
+      row = y;
+      break;
+    }
+  }
+  if (row < 0) {
+    throw new Error("Selected column is full.");
+  }
+
+  const mark = actor.mark ?? (actor.id === "1" ? "O" : "X");
+  board[row][column] = mark;
+
+  const winnerId = getConnect4WinnerId(state, board);
+  state.public.winner = winnerId;
+  if (winnerId) {
+    state.players[winnerId].points = Math.max(1, state.players[winnerId].points);
+  }
+
+  return {
+    kind: "connect4_drop",
+    row,
+    column,
     mark,
     winner: winnerId
   };
@@ -419,6 +603,91 @@ function applyBuyCard(
   };
 }
 
+function applyTakeFromPile(
+  state: CompiledState,
+  actor: CompiledPlayerState,
+  action: CompiledAction,
+  spec: NimSpec | null
+): Record<string, unknown> {
+  if (!spec) {
+    throw new Error("take_from_pile spec is missing.");
+  }
+  const piles = getPiles(state);
+  if (!piles) {
+    throw new Error("piles are missing.");
+  }
+
+  const pileIndex = action.payload?.pileIndex;
+  const count = action.payload?.count;
+  if (!isInteger(pileIndex) || !isInteger(count)) {
+    throw new Error("take_from_pile requires pileIndex/count.");
+  }
+  if (pileIndex < 0 || pileIndex >= piles.length) {
+    throw new Error("take_from_pile pileIndex out of bounds.");
+  }
+  if (count < spec.minTake || count > spec.maxTake || count > piles[pileIndex]) {
+    throw new Error("take_from_pile count is invalid.");
+  }
+
+  piles[pileIndex] -= count;
+  let winnerId: string | null = null;
+  if (piles.every((pile) => pile === 0)) {
+    winnerId = actor.id;
+    state.public.winner = winnerId;
+    actor.points = Math.max(1, actor.points);
+  }
+
+  return {
+    kind: "take_from_pile",
+    pileIndex,
+    count,
+    winner: winnerId
+  };
+}
+
+function applyPigRoll(
+  state: CompiledState,
+  _actor: CompiledPlayerState,
+  _action: CompiledAction,
+  rng: RNG
+): { diff: Record<string, unknown>; advancePlayer: boolean } {
+  const roll = rng.nextInt(1, 6);
+  const currentTurnTotal = asNumber(state.public.turnTotal, 0);
+  if (roll === 1) {
+    state.public.turnTotal = 0;
+    return {
+      diff: { kind: "pig_roll", roll, bust: true, turnTotal: 0 },
+      advancePlayer: true
+    };
+  }
+
+  const nextTurnTotal = currentTurnTotal + roll;
+  state.public.turnTotal = nextTurnTotal;
+  return {
+    diff: { kind: "pig_roll", roll, bust: false, turnTotal: nextTurnTotal },
+    advancePlayer: false
+  };
+}
+
+function applyPigHold(
+  state: CompiledState,
+  actor: CompiledPlayerState,
+  _action: CompiledAction
+): { diff: Record<string, unknown>; advancePlayer: boolean } {
+  const turnTotal = asNumber(state.public.turnTotal, 0);
+  if (turnTotal <= 0) {
+    throw new Error("pig_hold requires turnTotal > 0.");
+  }
+  actor.points += turnTotal;
+  state.public.turnTotal = 0;
+  state.public.winner = null;
+
+  return {
+    diff: { kind: "pig_hold", banked: turnTotal, points: actor.points },
+    advancePlayer: true
+  };
+}
+
 function computePayment(actor: CompiledPlayerState, cost: Record<string, number>): Record<string, number> {
   const payment: Record<string, number> = {};
   for (const color of NON_GOLD_COLORS) {
@@ -451,25 +720,17 @@ function isValidTakePattern(colors: string[], bank: Record<string, number>): boo
   return false;
 }
 
-function scoreState(
-  state: CompiledState,
-  ir: GameIRv0,
-  supportedActionKinds: Set<string>
-): Record<PlayerId, number> {
+function scoreState(state: CompiledState, ir: GameIRv0): Record<PlayerId, number> {
   const playerIds = Object.keys(state.players);
   if (ir.scoring.kind === "per_player_points") {
     return Object.fromEntries(playerIds.map((id) => [id, state.players[id].points])) as Record<PlayerId, number>;
   }
 
-  if (supportedActionKinds.has("tictactoe_place")) {
-    const winner = typeof state.public.winner === "string" ? state.public.winner : null;
-    if (!winner) {
-      return Object.fromEntries(playerIds.map((id) => [id, 0])) as Record<PlayerId, number>;
-    }
-    return Object.fromEntries(playerIds.map((id) => [id, id === winner ? 1 : -1])) as Record<PlayerId, number>;
+  const winner = typeof state.public.winner === "string" ? state.public.winner : null;
+  if (!winner) {
+    return Object.fromEntries(playerIds.map((id) => [id, 0])) as Record<PlayerId, number>;
   }
-
-  return Object.fromEntries(playerIds.map((id) => [id, 0])) as Record<PlayerId, number>;
+  return Object.fromEntries(playerIds.map((id) => [id, id === winner ? 1 : -1])) as Record<PlayerId, number>;
 }
 
 function getNextPlayer(state: CompiledState): string {
@@ -505,7 +766,7 @@ function getBoard(state: CompiledState): (string | null)[][] | null {
   return normalized;
 }
 
-function getWinnerId(state: CompiledState, board: (string | null)[][]): string | null {
+function getTicTacToeWinnerId(state: CompiledState, board: (string | null)[][]): string | null {
   const lines: Array<[[number, number], [number, number], [number, number]]> = [
     [
       [0, 0],
@@ -550,6 +811,9 @@ function getWinnerId(state: CompiledState, board: (string | null)[][]): string |
   ];
 
   for (const [[x1, y1], [x2, y2], [x3, y3]] of lines) {
+    if (!board[y1]?.[x1] || !board[y2]?.[x2] || !board[y3]?.[x3]) {
+      continue;
+    }
     const mark = board[y1][x1];
     if (mark && mark === board[y2][x2] && mark === board[y3][x3]) {
       const winnerEntry = Object.values(state.players).find((player) => player.mark === mark);
@@ -557,6 +821,50 @@ function getWinnerId(state: CompiledState, board: (string | null)[][]): string |
     }
   }
   return null;
+}
+
+function getConnect4WinnerId(state: CompiledState, board: (string | null)[][]): string | null {
+  const directions: Array<[number, number]> = [
+    [1, 0],
+    [0, 1],
+    [1, 1],
+    [1, -1]
+  ];
+
+  for (let y = 0; y < board.length; y += 1) {
+    for (let x = 0; x < board[y].length; x += 1) {
+      const mark = board[y][x];
+      if (!mark) {
+        continue;
+      }
+      for (const [dx, dy] of directions) {
+        if (isFourInDirection(board, x, y, dx, dy, mark)) {
+          const winnerEntry = Object.values(state.players).find((player) => player.mark === mark);
+          return winnerEntry?.id ?? null;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function isFourInDirection(
+  board: (string | null)[][],
+  startX: number,
+  startY: number,
+  dx: number,
+  dy: number,
+  mark: string
+): boolean {
+  for (let step = 1; step < 4; step += 1) {
+    const x = startX + dx * step;
+    const y = startY + dy * step;
+    if (!board[y] || board[y][x] !== mark) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function isBoardFull(board: (string | null)[][]): boolean {
@@ -568,6 +876,13 @@ function getBank(state: CompiledState): Record<string, number> | null {
     return null;
   }
   return state.public.bank as Record<string, number>;
+}
+
+function getPiles(state: CompiledState): number[] | null {
+  if (!Array.isArray(state.public.piles)) {
+    return null;
+  }
+  return state.public.piles.filter((entry): entry is number => typeof entry === "number");
 }
 
 function getMarketCardIds(state: CompiledState): string[] | null {
@@ -613,6 +928,9 @@ function canonicalAction(action: CompiledAction): string {
   if (action.type === "tictactoe_place") {
     return `${action.type}|${action.actor}|${action.payload?.x ?? -1}|${action.payload?.y ?? -1}`;
   }
+  if (action.type === "connect4_drop") {
+    return `${action.type}|${action.actor}|${action.payload?.column ?? -1}`;
+  }
   if (action.type === "take_tokens") {
     const colors = [...(action.payload?.colors ?? [])].sort().join(",");
     return `${action.type}|${action.actor}|${colors}`;
@@ -620,7 +938,10 @@ function canonicalAction(action: CompiledAction): string {
   if (action.type === "buy_card") {
     return `${action.type}|${action.actor}|${action.payload?.cardId ?? ""}`;
   }
-  return exhaustiveCheck(action);
+  if (action.type === "take_from_pile") {
+    return `${action.type}|${action.actor}|${action.payload?.pileIndex ?? -1}|${action.payload?.count ?? -1}`;
+  }
+  return `${action.type}|${action.actor}`;
 }
 
 function withDiff(action: CompiledAction, diff: Record<string, unknown>): CompiledAction {
@@ -639,6 +960,26 @@ function extractTakeColors(ir: GameIRv0): string[] {
     return [];
   }
   return [...spec.params.colors];
+}
+
+function extractConnect4Columns(ir: GameIRv0): number[] {
+  const spec = ir.actions.find((action) => action.kind === "connect4_drop");
+  if (!spec || !spec.params.columns) {
+    return [];
+  }
+  return [...spec.params.columns];
+}
+
+function extractNimSpec(ir: GameIRv0): NimSpec | null {
+  const spec = ir.actions.find((action) => action.kind === "take_from_pile");
+  if (!spec) {
+    return null;
+  }
+  return {
+    minTake: spec.params.minTake,
+    maxTake: spec.params.maxTake,
+    pileIndexes: spec.params.pileIndexes ? [...spec.params.pileIndexes] : undefined
+  };
 }
 
 function normalizeNumberRecord(value: unknown): Record<string, number> {
@@ -704,8 +1045,4 @@ function fnv1a(input: string): string {
     hash = Math.imul(hash, 16777619) >>> 0;
   }
   return hash.toString(16).padStart(8, "0");
-}
-
-function exhaustiveCheck(unreachable: never): never {
-  throw new Error(`Unhandled variant: ${String(unreachable)}`);
 }

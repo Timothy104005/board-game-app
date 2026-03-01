@@ -1,0 +1,82 @@
+{
+  "recognizer": "nim",
+  "irDraft": {
+    "meta": {
+      "id": "nim_ir",
+      "name": "Nim IR",
+      "playersMin": 2,
+      "playersMax": 2
+    },
+    "rng": {
+      "seedable": true
+    },
+    "state": {
+      "public": {
+        "phase": "main",
+        "stage": "action",
+        "turn": 0,
+        "currentPlayer": "0",
+        "piles": [
+          3,
+          4,
+          5
+        ],
+        "winner": null
+      },
+      "players": {
+        "0": {
+          "id": "0",
+          "points": 0
+        },
+        "1": {
+          "id": "1",
+          "points": 0
+        }
+      }
+    },
+    "turn": {
+      "order": "round_robin",
+      "phases": [
+        "main"
+      ]
+    },
+    "actions": [
+      {
+        "kind": "take_from_pile",
+        "params": {
+          "minTake": 1,
+          "maxTake": 3,
+          "pileIndexes": [
+            0,
+            1,
+            2
+          ]
+        }
+      }
+    ],
+    "end": {
+      "kind": "turn_limit",
+      "maxTurns": 50
+    },
+    "scoring": {
+      "kind": "zero_sum"
+    }
+  },
+  "gapSummary": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "gaps": [],
+  "checker": {
+    "errors": [],
+    "warnings": []
+  },
+  "compiledMeta": {
+    "id": "nim_ir",
+    "name": "Nim IR",
+    "initialLegalActionTypes": [
+      "take_from_pile"
+    ],
+    "initialLegalActionCount": 9
+  }
+}

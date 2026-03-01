@@ -1,0 +1,11 @@
+Nim
+
+SETUP:
+- Two players.
+- Start with three piles of stones.
+
+TURN:
+- On your turn, choose one pile and remove 1-3 stones.
+
+END:
+- Last move wins.

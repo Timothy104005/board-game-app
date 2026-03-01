@@ -22,10 +22,40 @@ const buyCardActionSchema = z.object({
   })
 });
 
+const connect4DropActionSchema = z.object({
+  kind: z.literal("connect4_drop"),
+  params: z.object({
+    columns: z.array(z.number().int().min(0)).optional()
+  })
+});
+
+const takeFromPileActionSchema = z.object({
+  kind: z.literal("take_from_pile"),
+  params: z.object({
+    minTake: z.number().int().positive(),
+    maxTake: z.number().int().positive(),
+    pileIndexes: z.array(z.number().int().min(0)).optional()
+  })
+});
+
+const pigRollActionSchema = z.object({
+  kind: z.literal("pig_roll"),
+  params: z.object({})
+});
+
+const pigHoldActionSchema = z.object({
+  kind: z.literal("pig_hold"),
+  params: z.object({})
+});
+
 const actionSpecSchema = z.discriminatedUnion("kind", [
   tictactoePlaceActionSchema,
   takeTokensActionSchema,
-  buyCardActionSchema
+  buyCardActionSchema,
+  connect4DropActionSchema,
+  takeFromPileActionSchema,
+  pigRollActionSchema,
+  pigHoldActionSchema
 ]);
 
 const endSchema = z.discriminatedUnion("kind", [

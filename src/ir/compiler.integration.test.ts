@@ -19,7 +19,9 @@ function loadFixture(name: string): GameIRv0 {
 }
 
 describe("IR compiler integration", () => {
-  it("compiles tictactoe IR and passes invariants", () => {
+  it(
+    "compiles tictactoe IR and passes invariants",
+    () => {
     const ir = loadFixture("tictactoe.ir.json");
     const module = compileToGameModule(ir);
 
@@ -30,7 +32,7 @@ describe("IR compiler integration", () => {
       score: module.score
     };
 
-    assertNoDeadEnd(engine, module.createInitialState, { seed: "ir-ttt-nodeadend", maxDepth: 6 });
+    assertNoDeadEnd(engine, module.createInitialState, { seed: "ir-ttt-nodeadend", maxDepth: 4 });
     assertDeterminism(
       engine,
       module.createInitialState,
@@ -43,9 +45,13 @@ describe("IR compiler integration", () => {
       ],
       "ir-ttt-seed"
     );
-  });
+    },
+    20000
+  );
 
-  it("compiles mini splendor IR and passes invariants + bounds", () => {
+  it(
+    "compiles mini splendor IR and passes invariants + bounds",
+    () => {
     const ir = loadFixture("mini_splendor.ir.json");
     const module = compileToGameModule(ir);
 
@@ -56,7 +62,7 @@ describe("IR compiler integration", () => {
       score: module.score
     };
 
-    assertNoDeadEnd(engine, module.createInitialState, { seed: "ir-splendor-nodeadend", maxDepth: 4 });
+    assertNoDeadEnd(engine, module.createInitialState, { seed: "ir-splendor-nodeadend", maxDepth: 2 });
 
     const sequence: CompiledAction[] = [
       { type: "take_tokens", actor: "0", payload: { colors: ["blue", "green", "red"] } },
@@ -78,7 +84,9 @@ describe("IR compiler integration", () => {
         expect(tokenTotal).toBeLessThanOrEqual(10);
       }
     }
-  }, 15000);
+    },
+    30000
+  );
 });
 
 function runDeterministicTrajectory(

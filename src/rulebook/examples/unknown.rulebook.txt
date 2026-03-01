@@ -1,0 +1,6 @@
+Mystery Tabletop Game
+
+Players prepare pieces and then continue through rounds.
+Some turns allow movement or special effects.
+Points may appear from objectives, but the finish condition is not clearly stated.
+Additional mechanics might include negotiation or other advanced actions.

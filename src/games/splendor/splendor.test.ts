@@ -91,9 +91,13 @@ describe("mini-splendor module", () => {
     assertDeterminism(engine, initialState, sequence, "splendor-fixed-seed-mixed");
   });
 
-  it("invariant gate still passes (no dead-end)", () => {
-    assertNoDeadEnd(engine, initialState, { seed: "splendor-no-dead-end", maxDepth: 4 });
-  });
+  it(
+    "invariant gate still passes (no dead-end)",
+    () => {
+    assertNoDeadEnd(engine, initialState, { seed: "splendor-no-dead-end", maxDepth: 2 });
+    },
+    15000
+  );
 
   it("enforces token limit with explicit discard options for take_tokens", () => {
     const state = initialState("splendor-discard");

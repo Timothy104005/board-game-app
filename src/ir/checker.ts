@@ -1,7 +1,15 @@
 import { gameIRv0Schema } from "./schema.js";
 import type { GameIRv0 } from "./types.js";
 
-const SUPPORTED_ACTION_KINDS = new Set(["tictactoe_place", "take_tokens", "buy_card"]);
+const SUPPORTED_ACTION_KINDS = new Set([
+  "tictactoe_place",
+  "take_tokens",
+  "buy_card",
+  "connect4_drop",
+  "take_from_pile",
+  "pig_roll",
+  "pig_hold"
+]);
 
 export interface IRCheckResult {
   errors: string[];
@@ -69,7 +77,54 @@ function runConsistencyChecks(ir: GameIRv0, errors: string[], warnings: string[]
     }
   }
 
+  if (ir.actions.some((action) => action.kind === "connect4_drop")) {
+    const board = ir.state.public.board;
+    if (!isGrid(board, 6, 7)) {
+      errors.push("connect4_drop requires state.public.board as a 6x7 array.");
+    }
+  }
+
+  if (ir.actions.some((action) => action.kind === "take_from_pile")) {
+    const piles = ir.state.public.piles;
+    if (!Array.isArray(piles) || piles.length === 0 || !piles.every((entry) => typeof entry === "number")) {
+      errors.push("take_from_pile requires state.public.piles numeric array.");
+    }
+
+    for (const action of ir.actions) {
+      if (action.kind !== "take_from_pile") {
+        continue;
+      }
+      if (action.params.minTake < 1) {
+        errors.push("take_from_pile requires minTake >= 1.");
+      }
+      if (action.params.maxTake < action.params.minTake) {
+        errors.push("take_from_pile requires maxTake >= minTake.");
+      }
+    }
+  }
+
+  const hasPigRoll = ir.actions.some((action) => action.kind === "pig_roll");
+  const hasPigHold = ir.actions.some((action) => action.kind === "pig_hold");
+  if (hasPigRoll || hasPigHold) {
+    if (!hasPigRoll || !hasPigHold) {
+      errors.push("pig game requires both pig_roll and pig_hold actions.");
+    }
+    if (typeof ir.state.public.turnTotal !== "number") {
+      errors.push("pig actions require state.public.turnTotal numeric value.");
+    }
+    if (ir.end.kind !== "score_at_least" && ir.end.kind !== "turn_limit") {
+      errors.push("pig actions require end.kind to be score_at_least or turn_limit.");
+    }
+  }
+
   if (ir.end.kind === "never") {
     warnings.push("end.kind is 'never'; game may rely on legal-action exhaustion to terminate.");
   }
+}
+
+function isGrid(value: unknown, expectedRows: number, expectedCols: number): boolean {
+  if (!Array.isArray(value) || value.length !== expectedRows) {
+    return false;
+  }
+  return value.every((row) => Array.isArray(row) && row.length === expectedCols);
 }

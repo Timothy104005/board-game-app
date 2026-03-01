@@ -1,0 +1,137 @@
+{
+  "recognizer": "connect4",
+  "irDraft": {
+    "meta": {
+      "id": "connect4_ir",
+      "name": "Connect Four IR",
+      "playersMin": 2,
+      "playersMax": 2
+    },
+    "rng": {
+      "seedable": true
+    },
+    "state": {
+      "public": {
+        "phase": "main",
+        "stage": "action",
+        "turn": 0,
+        "currentPlayer": "0",
+        "board": [
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "winner": null
+      },
+      "players": {
+        "0": {
+          "id": "0",
+          "mark": "X",
+          "points": 0
+        },
+        "1": {
+          "id": "1",
+          "mark": "O",
+          "points": 0
+        }
+      }
+    },
+    "turn": {
+      "order": "round_robin",
+      "phases": [
+        "main"
+      ]
+    },
+    "actions": [
+      {
+        "kind": "connect4_drop",
+        "params": {
+          "columns": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
+    ],
+    "end": {
+      "kind": "turn_limit",
+      "maxTurns": 42
+    },
+    "scoring": {
+      "kind": "zero_sum"
+    }
+  },
+  "gapSummary": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "gaps": [],
+  "checker": {
+    "errors": [],
+    "warnings": []
+  },
+  "compiledMeta": {
+    "id": "connect4_ir",
+    "name": "Connect Four IR",
+    "initialLegalActionTypes": [
+      "connect4_drop"
+    ],
+    "initialLegalActionCount": 7
+  }
+}

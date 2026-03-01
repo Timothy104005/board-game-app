@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createGreedyBot } from "../bots/greedyBot.js";
 import { createRandomBot } from "../bots/randomBot.js";
 import { gameRegistry } from "../games/index.js";
+import { compileToGameModule } from "../ir/compileToGameModule.js";
+import { draftIRFromRulebookText } from "../rulebook/draftIRFromText.js";
 import { runBatch } from "./runBatch.js";
 
 describe("simulation runner", () => {
@@ -49,6 +51,41 @@ describe("simulation runner", () => {
     const total = Object.values(batch.metrics.winRates).reduce((sum, value) => sum + value, 0);
     expect(total).toBeGreaterThan(0.999999);
     expect(total).toBeLessThan(1.000001);
+  });
+
+  it("pig simulation remains deterministic under fixed seed", () => {
+    const text = [
+      "Pig Dice",
+      "Two players.",
+      "On each turn roll a die, or hold to bank turn total.",
+      "If you roll a 1, turn total resets and turn ends.",
+      "First player to 20 points wins."
+    ].join("\n");
+    const draft = draftIRFromRulebookText(text, { seedId: "sim-pig" });
+    const game = compileToGameModule(draft.irDraft);
+
+    const bots = {
+      "0": createRandomBot("random0"),
+      "1": createRandomBot("random1")
+    };
+
+    const first = runBatch({
+      game,
+      bots,
+      seed: "sim-pig-deterministic",
+      matches: 6,
+      maxTurns: 120
+    });
+    const second = runBatch({
+      game,
+      bots,
+      seed: "sim-pig-deterministic",
+      matches: 6,
+      maxTurns: 120
+    });
+
+    expect(first.metrics).toEqual(second.metrics);
+    expect(stableHash(first.matches)).toBe(stableHash(second.matches));
   });
 });
 

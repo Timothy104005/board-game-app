@@ -1,0 +1,13 @@
+Tic Tac Toe
+
+SETUP:
+- Use a 3x3 grid.
+- Player 1 is X and Player 2 is O.
+
+TURN:
+- Players alternate turns.
+- On your turn, place your mark in one empty cell.
+
+END:
+- Win by making three in a row horizontally, vertically, or diagonally.
+- If all cells are filled with no three in a row, the game is a draw.

@@ -1,0 +1,20 @@
+Mini Splendor
+
+SETUP:
+- Two players.
+- Start with tokens in a shared supply and a fixed visible market of cards.
+
+TURN:
+- On your turn, take 3 different tokens, or take 2 same tokens only when supply for that color is at least 4.
+- You may buy card from the market if you can pay cost with your tokens.
+- Discounts reduce future card costs.
+- Keep your token limit at 10.
+
+SCORING:
+- Cards grant points.
+- Higher points wins.
+
+NOTES:
+- No gold tokens for payment.
+- No reserve cards.
+- No nobles.

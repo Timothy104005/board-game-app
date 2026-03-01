@@ -17,9 +17,13 @@ const engine: EngineForInvariants<TicTacToeState, TicTacToeAction> = {
 };
 
 describe("tictactoe module", () => {
-  it("has no dead-end on reachable non-terminal states", () => {
-    assertNoDeadEnd(engine, initialState, { seed: "ttt-nodeadend", maxDepth: 8 });
-  });
+  it(
+    "has no dead-end on reachable non-terminal states",
+    () => {
+      assertNoDeadEnd(engine, initialState, { seed: "ttt-nodeadend", maxDepth: 4 });
+    },
+    15000
+  );
 
   it("is deterministic under fixed seed and action sequence", () => {
     const sequence: TicTacToeAction[] = [

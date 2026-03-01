@@ -1,0 +1,14 @@
+Pig Dice
+
+SETUP:
+- Two players.
+- Target score is 20 points.
+
+TURN:
+- On your turn, roll a die.
+- If you roll a 1, your turn total is lost and your turn ends.
+- Otherwise add the roll to your turn total and choose to roll again or hold.
+- Hold banks your turn total into your score and ends your turn.
+
+END:
+- First player to reach the target score wins.

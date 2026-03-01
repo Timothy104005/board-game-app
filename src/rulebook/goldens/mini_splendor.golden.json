@@ -1,0 +1,248 @@
+{
+  "recognizer": "mini_splendor",
+  "irDraft": {
+    "meta": {
+      "id": "mini_splendor_ir",
+      "name": "Mini Splendor IR",
+      "playersMin": 2,
+      "playersMax": 2
+    },
+    "rng": {
+      "seedable": true
+    },
+    "state": {
+      "public": {
+        "phase": "main",
+        "stage": "action",
+        "turn": 0,
+        "currentPlayer": "0",
+        "tokenLimit": 10,
+        "bank": {
+          "white": 4,
+          "blue": 4,
+          "green": 4,
+          "red": 4,
+          "black": 4,
+          "gold": 5
+        },
+        "cardPool": [
+          {
+            "id": "c1",
+            "cost": {
+              "blue": 1,
+              "green": 1,
+              "red": 1
+            },
+            "points": 0,
+            "bonusColor": "white"
+          },
+          {
+            "id": "c2",
+            "cost": {
+              "white": 1,
+              "green": 1,
+              "black": 1
+            },
+            "points": 0,
+            "bonusColor": "blue"
+          },
+          {
+            "id": "c3",
+            "cost": {
+              "white": 2,
+              "blue": 1,
+              "red": 1
+            },
+            "points": 1,
+            "bonusColor": "green"
+          },
+          {
+            "id": "c4",
+            "cost": {
+              "blue": 2,
+              "green": 1,
+              "black": 1
+            },
+            "points": 1,
+            "bonusColor": "red"
+          },
+          {
+            "id": "c5",
+            "cost": {
+              "white": 1,
+              "red": 2,
+              "green": 1
+            },
+            "points": 1,
+            "bonusColor": "black"
+          },
+          {
+            "id": "c6",
+            "cost": {
+              "blue": 2,
+              "green": 2,
+              "red": 1,
+              "black": 1
+            },
+            "points": 2,
+            "bonusColor": "white"
+          }
+        ],
+        "marketCardIds": [
+          "c1",
+          "c2",
+          "c3",
+          "c4",
+          "c5",
+          "c6"
+        ]
+      },
+      "players": {
+        "0": {
+          "id": "0",
+          "points": 0,
+          "tokens": {
+            "white": 0,
+            "blue": 0,
+            "green": 0,
+            "red": 0,
+            "black": 0,
+            "gold": 0
+          },
+          "discounts": {
+            "white": 0,
+            "blue": 0,
+            "green": 0,
+            "red": 0,
+            "black": 0
+          },
+          "purchasedCardIds": []
+        },
+        "1": {
+          "id": "1",
+          "points": 0,
+          "tokens": {
+            "white": 0,
+            "blue": 0,
+            "green": 0,
+            "red": 0,
+            "black": 0,
+            "gold": 0
+          },
+          "discounts": {
+            "white": 0,
+            "blue": 0,
+            "green": 0,
+            "red": 0,
+            "black": 0
+          },
+          "purchasedCardIds": []
+        }
+      }
+    },
+    "turn": {
+      "order": "round_robin",
+      "phases": [
+        "main"
+      ]
+    },
+    "actions": [
+      {
+        "kind": "take_tokens",
+        "params": {
+          "colors": [
+            "white",
+            "blue",
+            "green",
+            "red",
+            "black"
+          ]
+        }
+      },
+      {
+        "kind": "buy_card",
+        "params": {
+          "cardIds": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "c6"
+          ]
+        }
+      }
+    ],
+    "end": {
+      "kind": "turn_limit",
+      "maxTurns": 50
+    },
+    "scoring": {
+      "kind": "per_player_points"
+    },
+    "invariants": {
+      "resourceBounds": [
+        {
+          "path": "public.bank.white",
+          "min": 0,
+          "max": 4
+        },
+        {
+          "path": "public.bank.blue",
+          "min": 0,
+          "max": 4
+        },
+        {
+          "path": "public.bank.green",
+          "min": 0,
+          "max": 4
+        },
+        {
+          "path": "public.bank.red",
+          "min": 0,
+          "max": 4
+        },
+        {
+          "path": "public.bank.black",
+          "min": 0,
+          "max": 4
+        },
+        {
+          "path": "public.bank.gold",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    }
+  },
+  "gapSummary": {
+    "errors": 0,
+    "warnings": 2
+  },
+  "gaps": [
+    {
+      "filePointer": "/actions",
+      "severity": "warning",
+      "message": "Possible unsupported action signal detected: noble",
+      "suggestedFix": "Restrict to supported action kinds or extend IR/compiler support."
+    },
+    {
+      "filePointer": "/actions",
+      "severity": "warning",
+      "message": "Possible unsupported action signal detected: reserve",
+      "suggestedFix": "Restrict to supported action kinds or extend IR/compiler support."
+    }
+  ],
+  "checker": {
+    "errors": [],
+    "warnings": []
+  },
+  "compiledMeta": {
+    "id": "mini_splendor_ir",
+    "name": "Mini Splendor IR",
+    "initialLegalActionTypes": [
+      "take_tokens"
+    ],
+    "initialLegalActionCount": 15
+  }
+}

@@ -7,7 +7,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sim:tictactoe": "tsx scripts/simulate.ts tictactoe",
-    "sim:splendor": "tsx scripts/simulate.ts splendor"
+    "sim:splendor": "tsx scripts/simulate.ts splendor",
+    "rb:2ir": "tsx scripts/rulebook2ir.ts",
+    "rb:2ir:tictactoe": "tsx scripts/rulebook2ir.ts --in src/rulebook/examples/tictactoe.rulebook.txt --outDir artifacts/rulebook_ir",
+    "rb:2ir:splendor": "tsx scripts/rulebook2ir.ts --in src/rulebook/examples/mini_splendor.rulebook.txt --outDir artifacts/rulebook_ir",
+    "rb:run:tictactoe": "tsx scripts/rulebookRun.ts --in src/rulebook/examples/tictactoe.rulebook.txt --seed 42 --games 20 --maxTurns 20 --outDir artifacts/rulebook_run",
+    "rb:run:splendor": "tsx scripts/rulebookRun.ts --in src/rulebook/examples/mini_splendor.rulebook.txt --seed 42 --games 20 --maxTurns 80 --outDir artifacts/rulebook_run",
+    "rb:run:connect4": "tsx scripts/rulebookRun.ts --in src/rulebook/examples/connect4.rulebook.txt --seed 42 --games 20 --maxTurns 60 --outDir artifacts/rulebook_run",
+    "rb:run:nim": "tsx scripts/rulebookRun.ts --in src/rulebook/examples/nim.rulebook.txt --seed 42 --games 20 --maxTurns 50 --outDir artifacts/rulebook_run",
+    "rb:run:pig": "tsx scripts/rulebookRun.ts --in src/rulebook/examples/pig.rulebook.txt --seed 42 --games 20 --maxTurns 100 --outDir artifacts/rulebook_run"
   },
   "dependencies": {
     "zod": "^3.25.76"

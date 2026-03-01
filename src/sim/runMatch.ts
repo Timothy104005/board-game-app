@@ -1,4 +1,4 @@
-import type { Action, PlayerId, ReplayEvent, State } from "../engine/contracts.js";
+import type { Action, PlayerId, ReplayEvent, RNG, State } from "../engine/contracts.js";
 import type { GameModule } from "../games/types.js";
 import type { Bot } from "../bots/types.js";
 
@@ -69,7 +69,7 @@ export function runMatch<S extends State = State, A extends Action = Action>(inp
   };
 }
 
-class LcgRng {
+class LcgRng implements RNG {
   public readonly seed: string;
   private state: number;
   private cursorValue: number;
@@ -96,6 +96,10 @@ class LcgRng {
     }
     const span = maxInclusive - minInclusive + 1;
     return minInclusive + Math.floor(this.nextFloat() * span);
+  }
+
+  public clone(): RNG {
+    return new LcgRng(this.seed, this.state, this.cursorValue);
   }
 }
 

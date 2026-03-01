@@ -1,0 +1,66 @@
+{
+  "recognizer": "fallback",
+  "irDraft": {
+    "meta": {
+      "id": "unknown_ir_draft",
+      "name": "Unknown Rulebook Draft",
+      "playersMin": 2,
+      "playersMax": 2
+    },
+    "rng": {
+      "seedable": true
+    },
+    "state": {
+      "public": {
+        "phase": "main",
+        "stage": "action",
+        "turn": 0,
+        "currentPlayer": "0"
+      },
+      "players": {}
+    },
+    "turn": {
+      "order": "round_robin",
+      "phases": [
+        "main"
+      ]
+    },
+    "actions": [],
+    "end": {
+      "kind": "never"
+    },
+    "scoring": {
+      "kind": "per_player_points"
+    }
+  },
+  "gapSummary": {
+    "errors": 1,
+    "warnings": 2
+  },
+  "gaps": [
+    {
+      "filePointer": "/actions",
+      "severity": "error",
+      "message": "actions: Array must contain at least 1 element(s)"
+    },
+    {
+      "filePointer": "/end/kind",
+      "severity": "warning",
+      "message": "End condition is ambiguous or missing in extracted signals.",
+      "suggestedFix": "Describe game end condition explicitly (win/draw/turn limit/score target)."
+    },
+    {
+      "filePointer": "/meta/playersMin",
+      "severity": "warning",
+      "message": "Ambiguous player count in rulebook text.",
+      "suggestedFix": "Specify exact player count in the rulebook or set meta.playersMin/meta.playersMax manually."
+    }
+  ],
+  "checker": {
+    "errors": [
+      "actions: Array must contain at least 1 element(s)"
+    ],
+    "warnings": []
+  },
+  "compiledMeta": null
+}

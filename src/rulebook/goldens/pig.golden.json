@@ -1,0 +1,73 @@
+{
+  "recognizer": "pig",
+  "irDraft": {
+    "meta": {
+      "id": "pig_ir",
+      "name": "Pig Dice IR",
+      "playersMin": 2,
+      "playersMax": 2
+    },
+    "rng": {
+      "seedable": true
+    },
+    "state": {
+      "public": {
+        "phase": "main",
+        "stage": "action",
+        "turn": 0,
+        "currentPlayer": "0",
+        "turnTotal": 0
+      },
+      "players": {
+        "0": {
+          "id": "0",
+          "points": 0
+        },
+        "1": {
+          "id": "1",
+          "points": 0
+        }
+      }
+    },
+    "turn": {
+      "order": "round_robin",
+      "phases": [
+        "main"
+      ]
+    },
+    "actions": [
+      {
+        "kind": "pig_roll",
+        "params": {}
+      },
+      {
+        "kind": "pig_hold",
+        "params": {}
+      }
+    ],
+    "end": {
+      "kind": "score_at_least",
+      "target": 20
+    },
+    "scoring": {
+      "kind": "per_player_points"
+    }
+  },
+  "gapSummary": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "gaps": [],
+  "checker": {
+    "errors": [],
+    "warnings": []
+  },
+  "compiledMeta": {
+    "id": "pig_ir",
+    "name": "Pig Dice IR",
+    "initialLegalActionTypes": [
+      "pig_roll"
+    ],
+    "initialLegalActionCount": 1
+  }
+}

@@ -1,0 +1,14 @@
+Connect Four
+
+SETUP:
+- Two players use a 7 columns by 6 rows grid.
+- One player is X and the other is O.
+
+TURN:
+- Players alternate turns.
+- On your turn, drop one disc into a column.
+- The disc falls to the lowest empty row in that column.
+
+END:
+- Win by making 4 in a row horizontally, vertically, or diagonally.
+- If the board is full with no 4 in a row, the game is a draw.
