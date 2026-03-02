@@ -9,6 +9,14 @@ export function RunStatusClient({ runId, initial }: { runId: string; initial: Ru
 
   useEffect(() => {
     let isMounted = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const schedule = () => {
+      timer = setTimeout(() => {
+        void tick();
+      }, 2000);
+    };
+
     const tick = async () => {
       try {
         const response = await fetch(`/api/runs/${runId}`, {
@@ -17,6 +25,7 @@ export function RunStatusClient({ runId, initial }: { runId: string; initial: Ru
         if (!response.ok) {
           if (isMounted) {
             setError(`status fetch failed (${response.status})`);
+            schedule();
           }
           return;
         }
@@ -24,19 +33,25 @@ export function RunStatusClient({ runId, initial }: { runId: string; initial: Ru
         if (isMounted) {
           setData(parsed);
           setError(null);
+          if (parsed.run.status !== "succeeded" && parsed.run.status !== "failed") {
+            schedule();
+          }
         }
       } catch (fetchError) {
         if (isMounted) {
           const message = fetchError instanceof Error ? fetchError.message : String(fetchError);
           setError(message);
+          schedule();
         }
       }
     };
 
-    const timer = setInterval(tick, 2000);
+    void tick();
     return () => {
       isMounted = false;
-      clearInterval(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
     };
   }, [runId]);
 

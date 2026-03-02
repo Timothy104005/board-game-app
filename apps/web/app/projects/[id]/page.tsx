@@ -16,7 +16,15 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
   if (!project) {
     notFound();
   }
-  const runs = listRunRecords(project.id).slice().reverse();
+  const runs = listRunRecords(project.id).slice().reverse().slice(0, 10);
+  const runRows = runs.map((run) => {
+    const detail = getRunStatusResponse(run.id);
+    const hasReplay = detail?.artifactLinks.some((artifact) => artifact.key.toLowerCase().includes("replay")) ?? false;
+    return {
+      run,
+      hasReplay
+    };
+  });
   const latestRunStatus = project.latestRunId ? getRunStatusResponse(project.latestRunId) : null;
   const latestGapArtifact = project.latestRunId ? readArtifactText(project.latestRunId, "gaps") : null;
   const latestPatchArtifact = project.latestRunId ? readArtifactText(project.latestRunId, "patchTemplate") : null;
@@ -126,10 +134,11 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
                 <th>Status</th>
                 <th>Created</th>
                 <th>Open</th>
+                <th>Replay</th>
               </tr>
             </thead>
             <tbody>
-              {runs.map((run) => (
+              {runRows.map(({ run, hasReplay }) => (
                 <tr key={run.id}>
                   <td className="mono">{run.id}</td>
                   <td className="mono">{run.jobType}</td>
@@ -138,6 +147,7 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
                   <td>
                     <Link href={`/runs/${run.id}`}>Run</Link>
                   </td>
+                  <td>{hasReplay ? <Link href={`/replays/${run.id}`}>View Replay</Link> : "-"}</td>
                 </tr>
               ))}
             </tbody>
