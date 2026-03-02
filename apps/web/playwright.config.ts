@@ -9,6 +9,7 @@ export default defineConfig({
   testDir: "./tests",
   timeout: 120_000,
   fullyParallel: false,
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: "http://localhost:3000",
@@ -16,16 +17,16 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "npm run jobs:worker -- --pollMs 200 --pool 1",
+      command: "npm run jobs:reset && npm run jobs:worker -- --pollMs 200 --pool 1",
       cwd: repoRoot,
       timeout: 120_000,
-      reuseExistingServer: !process.env.CI
+      reuseExistingServer: false
     },
     {
       command: "npm run dev -- --port 3000",
       cwd: webRoot,
       timeout: 120_000,
-      reuseExistingServer: !process.env.CI
+      reuseExistingServer: false
     }
   ]
 });
