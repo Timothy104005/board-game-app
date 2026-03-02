@@ -9,3 +9,5 @@ build/
 .cache/
 *.log
 .env*
+apps/web/test-results/
+apps/web/playwright-report/
