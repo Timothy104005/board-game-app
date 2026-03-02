@@ -2,6 +2,7 @@
 
 `verify:soak` is a long-running deterministic verification pass for the full repo workflow.
 `verify:overnight` is the expanded overnight hardening pass with simulation, tuning, and rulebook command coverage.
+`verify:schoolday` is the school-time endurance run for web-job productization validation.
 
 ## Purpose
 
@@ -15,6 +16,7 @@
 ```bash
 npm run verify:soak
 npm run verify:overnight
+npm run verify:schoolday
 ```
 
 ## Expected Runtime Characteristics
@@ -31,12 +33,20 @@ npm run verify:overnight
 - Runs all `rb:run:*` scripts discovered from `package.json`, sorted by script name.
 - Writes per-command logs and a manifest with command outcomes and key metrics.
 
+`verify:schoolday` additionally:
+
+- Starts a worker daemon process for durable queue execution.
+- Enqueues rulebook, tuning, and large simulation jobs through `src/jobs/*`.
+- Waits for all enqueued run IDs to reach terminal status.
+- Writes `artifacts/schoolday/YYYYMMDD-HHMMSS/summary.json`.
+
 ## Output Structure
 
 Outputs are written under:
 
 - `artifacts/soak/YYYYMMDD-HHMMSS/`
 - `artifacts/overnight/YYYYMMDD-HHMMSS/`
+- `artifacts/schoolday/YYYYMMDD-HHMMSS/`
 
 Inside each run folder:
 

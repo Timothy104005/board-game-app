@@ -161,3 +161,38 @@ G. **?????**:runMatch/runBatch,?? summary ? artifacts?
 - ??????????????????????
 - ?????????(data residency)????????
 - ?????????????????
+
+## M5 MVP Architecture Notes (2026-03-02)
+
+### Implemented Scope
+
+- Added `apps/web` Next.js App Router dashboard:
+  - `/` projects list
+  - `/projects/new` project creation (paste/upload text)
+  - `/projects/[id]` run controls and latest artifacts preview
+  - `/runs/[runId]` run status, log tail, artifact links
+  - `/replays/[replayId]` deterministic replay viewer
+- Added route handlers under `apps/web/app/api/*` for project/run operations.
+- Added server actions for project creation and job enqueue flows.
+- Added durable root job system under `src/jobs/*` with persisted store:
+  - `projects.json`, `runs.json`, `queue.json`
+  - per-run manifest/logs/artifacts under `artifacts/jobs/<runId>/`
+- Added worker daemon + CLI:
+  - `npm run jobs:worker`
+  - sequential queue consumption with deterministic status transitions
+- Added school-day soak verifier:
+  - `npm run verify:schoolday`
+
+### Determinism and Auditability
+
+- Default seed remains `"42"` unless explicitly overridden.
+- Queue IDs are deterministic monotonic counters (`p000001`, `r000001`).
+- Runs record explicit manifests with config, status, artifact pointers, and errors.
+- Replay/stat artifact rendering uses manifest pointers and stable file locations.
+
+### CI Productization Updates
+
+- Split CI workflow:
+  - `core` job: root tests with coverage + tuning smoke
+  - `web` job: root install, web install, web build, Playwright critical flow
+- `FASTCHECK_RUNS=50` enforced in CI core tests.
