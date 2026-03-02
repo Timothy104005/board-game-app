@@ -1,5 +1,6 @@
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { getJobsRoot } from "../paths";
 import { stableStringify } from "../utils/stableJson";
 import type { ProjectRecord, RunRecord } from "./types";
 
@@ -28,14 +29,28 @@ export interface JobsStore {
   writeQueueState(value: QueueState): void;
 }
 
-export function createJobsStore(rootDir = resolve(process.cwd(), "artifacts", "jobs")): JobsStore {
-  const projectsPath = resolve(rootDir, "projects.json");
-  const runsPath = resolve(rootDir, "runs.json");
-  const queuePath = resolve(rootDir, "queue.json");
-  const lockPath = resolve(rootDir, "store.lock");
+interface StoreOptions {
+  lockTimeoutMs?: number;
+  staleLockMs?: number;
+  minBackoffMs?: number;
+  maxBackoffMs?: number;
+}
+
+export function createJobsStore(rootDir = getJobsRoot(), options: StoreOptions = {}): JobsStore {
+  const resolvedRootDir = resolve(rootDir);
+  const projectsPath = resolve(resolvedRootDir, "projects.json");
+  const runsPath = resolve(resolvedRootDir, "runs.json");
+  const queuePath = resolve(resolvedRootDir, "queue.json");
+  const lockPath = resolve(resolvedRootDir, "store.lock");
+  const lockOptions = {
+    timeoutMs: options.lockTimeoutMs ?? 5000,
+    staleMs: options.staleLockMs ?? 30_000,
+    minBackoffMs: options.minBackoffMs ?? 10,
+    maxBackoffMs: options.maxBackoffMs ?? 200
+  };
 
   function ensureInitialized(): void {
-    mkdirSync(rootDir, { recursive: true });
+    mkdirSync(resolvedRootDir, { recursive: true });
     if (!existsSync(projectsPath)) {
       writeAtomicJson(projectsPath, {
         nextProjectNumber: 1,
@@ -57,7 +72,7 @@ export function createJobsStore(rootDir = resolve(process.cwd(), "artifacts", "j
 
   function withLock<T>(fn: () => T): T {
     ensureInitialized();
-    const lockFd = acquireLock(lockPath);
+    const lockFd = acquireLock(lockPath, lockOptions);
     try {
       return fn();
     } finally {
@@ -66,7 +81,7 @@ export function createJobsStore(rootDir = resolve(process.cwd(), "artifacts", "j
   }
 
   return {
-    rootDir,
+    rootDir: resolvedRootDir,
     withLock,
     readProjectsState: () => readJson<ProjectsState>(projectsPath),
     writeProjectsState: (value) => writeAtomicJson(projectsPath, value),
@@ -77,12 +92,19 @@ export function createJobsStore(rootDir = resolve(process.cwd(), "artifacts", "j
   };
 }
 
-function acquireLock(lockPath: string): number {
+function acquireLock(
+  lockPath: string,
+  options: {
+    timeoutMs: number;
+    staleMs: number;
+    minBackoffMs: number;
+    maxBackoffMs: number;
+  }
+): number {
   const start = Date.now();
-  const timeoutMs = 5000;
-  const staleMs = 30_000;
+  let attempt = 0;
 
-  while (Date.now() - start < timeoutMs) {
+  while (Date.now() - start < options.timeoutMs) {
     try {
       return openSync(lockPath, "wx");
     } catch (error) {
@@ -94,7 +116,7 @@ function acquireLock(lockPath: string): number {
       if (existsSync(lockPath)) {
         try {
           const ageMs = Date.now() - statSync(lockPath).mtimeMs;
-          if (ageMs > staleMs) {
+          if (ageMs > options.staleMs) {
             unlinkSync(lockPath);
             continue;
           }
@@ -102,7 +124,9 @@ function acquireLock(lockPath: string): number {
           // no-op
         }
       }
-      sleepMs(20);
+      const delay = Math.min(options.maxBackoffMs, options.minBackoffMs * 2 ** attempt);
+      attempt += 1;
+      sleepMs(delay);
     }
   }
 
@@ -131,7 +155,29 @@ function readJson<T>(path: string): T {
 }
 
 function writeAtomicJson(path: string, value: unknown): void {
-  const tempPath = `${path}.tmp`;
+  const tempPath = `${path}.tmp.${process.pid}.${Date.now()}.${nextCounter()}`;
   writeFileSync(tempPath, `${stableStringify(value)}\n`, "utf8");
-  renameSync(tempPath, path);
+  renameWithRetry(tempPath, path);
+}
+
+let writeCounter = 0;
+function nextCounter(): number {
+  writeCounter += 1;
+  return writeCounter;
+}
+
+function renameWithRetry(fromPath: string, toPath: string): void {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      renameSync(fromPath, toPath);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "EPERM" && code !== "EBUSY" && code !== "EACCES") {
+        throw error;
+      }
+      sleepMs(5 * (attempt + 1));
+    }
+  }
+  renameSync(fromPath, toPath);
 }

@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   createProject,
   enqueue,
@@ -8,8 +9,8 @@ import {
   listRuns,
   updateProject
 } from "../../../src/jobs/queue";
+import { getJobsRoot, getRepoRoot } from "../../../src/paths";
 import type { CreateProjectInput, JobPayload, JobType, ProjectRecord, RunManifest, RunRecord } from "../../../src/jobs/types";
-import { getJobsRoot, resolveRepoPath } from "./repoPaths";
 
 export type { CreateProjectInput, JobPayload, JobType, ProjectRecord, RunManifest, RunRecord };
 const jobsRoot = getJobsRoot();
@@ -49,7 +50,7 @@ export function readRunManifest(run: RunRecord): RunManifest | null {
   if (!run.manifestPath) {
     return null;
   }
-  const fullPath = resolveRepoPath(run.manifestPath);
+  const fullPath = resolve(getRepoRoot(), run.manifestPath);
   if (!existsSync(fullPath)) {
     return null;
   }

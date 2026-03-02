@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
-import { resolve } from "node:path";
+import { getJobsRoot } from "../src/paths.js";
 
-const jobsRoot = resolve(process.cwd(), "artifacts", "jobs");
+const jobsRoot = getJobsRoot();
 if (existsSync(jobsRoot)) {
   rmSync(jobsRoot, { recursive: true, force: true });
 }

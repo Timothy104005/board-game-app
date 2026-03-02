@@ -1,24 +1,75 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { executeRun } from "./executors.js";
-import { dequeueNextRun, getProject, getRun, markRunStatus, updateProject } from "./queue.js";
+import { toRepoRelativePath } from "../paths.js";
 import { stableStringify } from "../utils/stableJson.js";
+import { executeRun } from "./executors.js";
+import { dequeueNextRun, getProject, getRun, markRunStatus, recoverInterruptedRuns, updateProject } from "./queue.js";
 import type { RunManifest } from "./types.js";
+
+export interface WorkerEvent {
+  ts?: string;
+  level: "info" | "warn" | "error";
+  event: string;
+  runId?: string;
+  message?: string;
+  [key: string]: unknown;
+}
 
 export interface WorkerDaemonOptions {
   pollIntervalMs?: number;
   maxParallelPoolSize?: number;
   rootDir?: string;
+  once?: boolean;
+  signal?: AbortSignal;
+  onEvent?: (event: WorkerEvent) => void;
 }
 
 export async function runWorkerDaemon(opts: WorkerDaemonOptions = {}): Promise<void> {
-  const pollIntervalMs = opts.pollIntervalMs ?? 500;
-  while (true) {
-    const processed = await processNextRun(opts);
+  const pollIntervalMs = Math.max(10, opts.pollIntervalMs ?? 500);
+  const recovery = recoverInterruptedRuns({ rootDir: opts.rootDir });
+  if (recovery.requeuedRunIds.length > 0) {
+    emit(opts, {
+      level: "warn",
+      event: "recovered_interrupted_runs",
+      runCount: recovery.requeuedRunIds.length,
+      runIds: recovery.requeuedRunIds
+    });
+  } else {
+    emit(opts, {
+      level: "info",
+      event: "startup_no_recovery_needed"
+    });
+  }
+
+  while (!opts.signal?.aborted) {
+    let processed = false;
+    try {
+      processed = await processNextRun(opts);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      emit(opts, {
+        level: "error",
+        event: "loop_error",
+        message
+      });
+    }
+
     if (!processed) {
-      await sleep(pollIntervalMs);
+      if (opts.once) {
+        emit(opts, {
+          level: "info",
+          event: "drained"
+        });
+        return;
+      }
+      await sleep(pollIntervalMs, opts.signal);
     }
   }
+
+  emit(opts, {
+    level: "info",
+    event: "stopped_by_signal"
+  });
 }
 
 export async function processNextRun(opts: WorkerDaemonOptions = {}): Promise<boolean> {
@@ -29,29 +80,51 @@ export async function processNextRun(opts: WorkerDaemonOptions = {}): Promise<bo
   }
 
   const startedAt = timestamp();
-  markRunStatus(
+  safeMarkRunStatus(
     next.id,
     "running",
     {
       startedAt,
       error: null
     },
-    { rootDir: opts.rootDir }
+    opts
   );
   const run = getRun(next.id, { rootDir: opts.rootDir });
   if (!run) {
+    emit(opts, {
+      level: "warn",
+      event: "run_missing_after_dequeue",
+      runId: next.id
+    });
     return true;
   }
 
   mkdirSync(run.runDir, { recursive: true });
   const logsPath = resolve(run.runDir, "logs.txt");
   const log = (line: string) => {
-    appendFileSync(logsPath, `[${timestamp()}] ${line}\n`, "utf8");
+    try {
+      appendFileSync(logsPath, `[${timestamp()}] ${line}\n`, "utf8");
+    } catch (error) {
+      emit(opts, {
+        level: "warn",
+        event: "log_append_failed",
+        runId: run.id,
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
   };
 
+  emit(opts, {
+    level: "info",
+    event: "run_started",
+    runId: run.id,
+    jobType: run.jobType,
+    projectId: run.projectId
+  });
   log(`starting run=${run.id} type=${run.jobType} project=${run.projectId}`);
   const project = getProject(run.projectId, { rootDir: opts.rootDir });
   if (!project) {
+    const missingProjectError = `project not found: ${run.projectId}`;
     const finishedAt = timestamp();
     const manifest = writeManifest(run.runDir, {
       runId: run.id,
@@ -64,19 +137,25 @@ export async function processNextRun(opts: WorkerDaemonOptions = {}): Promise<bo
       seed: "42",
       config: {},
       artifacts: {},
-      error: `project not found: ${run.projectId}`
+      error: missingProjectError
     });
-    markRunStatus(
+    safeMarkRunStatus(
       run.id,
       "failed",
       {
         finishedAt,
-        error: `project not found: ${run.projectId}`,
+        error: missingProjectError,
         manifestPath: manifest
       },
-      { rootDir: opts.rootDir }
+      opts
     );
     log(`failed: project not found`);
+    emit(opts, {
+      level: "error",
+      event: "run_failed",
+      runId: run.id,
+      message: missingProjectError
+    });
     return true;
   }
 
@@ -95,7 +174,7 @@ export async function processNextRun(opts: WorkerDaemonOptions = {}): Promise<bo
       finishedAt
     });
 
-    markRunStatus(
+    safeMarkRunStatus(
       run.id,
       result.ok ? "succeeded" : "failed",
       {
@@ -103,18 +182,24 @@ export async function processNextRun(opts: WorkerDaemonOptions = {}): Promise<bo
         error: result.ok ? null : result.manifest.error ?? "job failed",
         manifestPath
       },
-      { rootDir: opts.rootDir }
+      opts
     );
-    updateProject(
+    safeUpdateProject(
       project.id,
       {
         latestRunId: run.id,
         latestIrPath: result.projectPatch?.latestIrPath ?? project.latestIrPath,
         latestReplayPath: result.projectPatch?.latestReplayPath ?? project.latestReplayPath
       },
-      { rootDir: opts.rootDir }
+      opts
     );
     log(`finished status=${result.ok ? "succeeded" : "failed"}`);
+    emit(opts, {
+      level: "info",
+      event: "run_finished",
+      runId: run.id,
+      status: result.ok ? "succeeded" : "failed"
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const finishedAt = timestamp();
@@ -131,7 +216,7 @@ export async function processNextRun(opts: WorkerDaemonOptions = {}): Promise<bo
       artifacts: {},
       error: message
     });
-    markRunStatus(
+    safeMarkRunStatus(
       run.id,
       "failed",
       {
@@ -139,37 +224,99 @@ export async function processNextRun(opts: WorkerDaemonOptions = {}): Promise<bo
         error: message,
         manifestPath
       },
-      { rootDir: opts.rootDir }
+      opts
     );
-    updateProject(
+    safeUpdateProject(
       project.id,
       {
         latestRunId: run.id
       },
-      { rootDir: opts.rootDir }
+      opts
     );
     log(`failed: ${message}`);
+    emit(opts, {
+      level: "error",
+      event: "run_failed",
+      runId: run.id,
+      message
+    });
   }
 
   return true;
 }
 
-function writeManifest(runDir: string, manifest: RunManifest): string {
-  const fullPath = resolve(runDir, "manifest.json");
-  writeFileSync(fullPath, `${stableStringify(manifest)}\n`, "utf8");
-  return toRelative(fullPath);
+function safeMarkRunStatus(
+  runId: string,
+  status: "queued" | "running" | "succeeded" | "failed",
+  patch: {
+    startedAt?: string | null;
+    finishedAt?: string | null;
+    error?: string | null;
+    manifestPath?: string | null;
+  },
+  opts: WorkerDaemonOptions
+): void {
+  try {
+    markRunStatus(runId, status, patch, { rootDir: opts.rootDir });
+  } catch (error) {
+    emit(opts, {
+      level: "warn",
+      event: "mark_status_failed",
+      runId,
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
 }
 
-function toRelative(pathValue: string): string {
-  return pathValue.replace(`${process.cwd()}\\`, "").replace(/\\/g, "/");
+function safeUpdateProject(
+  projectId: string,
+  patch: {
+    latestRunId?: string | null;
+    latestIrPath?: string | null;
+    latestReplayPath?: string | null;
+  },
+  opts: WorkerDaemonOptions
+): void {
+  try {
+    updateProject(projectId, patch, { rootDir: opts.rootDir });
+  } catch (error) {
+    emit(opts, {
+      level: "warn",
+      event: "project_update_failed",
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
+function writeManifest(runDir: string, manifest: RunManifest): string {
+  mkdirSync(runDir, { recursive: true });
+  const fullPath = resolve(runDir, "manifest.json");
+  writeFileSync(fullPath, `${stableStringify(manifest)}\n`, "utf8");
+  return toRepoRelativePath(fullPath);
+}
+
+function emit(opts: WorkerDaemonOptions, event: WorkerEvent): void {
+  opts.onEvent?.({
+    ts: timestamp(),
+    ...event
+  });
 }
 
 function timestamp(): string {
   return new Date().toISOString();
 }
 
-function sleep(ms: number): Promise<void> {
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolvePromise) => {
-    setTimeout(resolvePromise, ms);
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolvePromise();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      resolvePromise();
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 }

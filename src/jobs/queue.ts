@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
+import { getJobsRoot, getRepoRoot } from "../paths";
 import { createJobsStore } from "./store";
 import type { CreateProjectInput, JobPayload, JobType, ProjectRecord, RunRecord, RunStatus } from "./types";
 
@@ -149,13 +150,16 @@ export function dequeueNextRun(options: QueueOptions = {}): RunRecord | null {
   return store.withLock(() => {
     const runsState = store.readRunsState();
     const queueState = store.readQueueState();
-    const nextId = queueState.runIds.shift();
-    if (!nextId) {
-      return null;
+    while (queueState.runIds.length > 0) {
+      const nextId = queueState.runIds.shift() as string;
+      const run = runsState.runs.find((entry) => entry.id === nextId) ?? null;
+      if (run && run.status === "queued") {
+        store.writeQueueState(queueState);
+        return run;
+      }
     }
-    const run = runsState.runs.find((entry) => entry.id === nextId) ?? null;
     store.writeQueueState(queueState);
-    return run;
+    return null;
   });
 }
 
@@ -190,6 +194,39 @@ export function markRunStatus(
   });
 }
 
+export function recoverInterruptedRuns(options: QueueOptions = {}): { requeuedRunIds: string[] } {
+  const store = createJobsStore(resolveRoot(options));
+  return store.withLock(() => {
+    const runsState = store.readRunsState();
+    const queueState = store.readQueueState();
+    const queueSet = new Set(queueState.runIds);
+    const requeuedRunIds: string[] = [];
+
+    for (const run of runsState.runs) {
+      if (run.status === "running") {
+        run.status = "queued";
+        run.startedAt = null;
+        run.finishedAt = null;
+        run.error = null;
+        if (!queueSet.has(run.id)) {
+          queueState.runIds.push(run.id);
+          queueSet.add(run.id);
+        }
+        requeuedRunIds.push(run.id);
+      } else if (run.status === "queued" && !queueSet.has(run.id)) {
+        queueState.runIds.push(run.id);
+        queueSet.add(run.id);
+      }
+    }
+
+    if (requeuedRunIds.length > 0) {
+      store.writeRunsState(runsState);
+    }
+    store.writeQueueState(queueState);
+    return { requeuedRunIds };
+  });
+}
+
 function formatId(prefix: "p" | "r", number: number): string {
   return `${prefix}${String(number).padStart(6, "0")}`;
 }
@@ -199,5 +236,11 @@ function timestamp(): string {
 }
 
 function resolveRoot(options: QueueOptions): string | undefined {
-  return options.rootDir ? resolve(process.cwd(), options.rootDir) : undefined;
+  if (!options.rootDir) {
+    return getJobsRoot();
+  }
+  if (isAbsolute(options.rootDir)) {
+    return options.rootDir;
+  }
+  return resolve(getRepoRoot(), options.rootDir);
 }

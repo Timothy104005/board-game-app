@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getRunRecord, readRunManifest } from "./coreJobs";
 import type { RunManifest, RunRecord } from "./coreJobs";
-import { getRepoRoot, isWithinRepo, resolveRepoPath } from "./repoPaths";
+import { getRepoRoot, isPathInsideRepo } from "../../../src/paths";
 
 export interface ArtifactLink {
   key: string;
@@ -45,7 +45,7 @@ export function readArtifactText(runId: string, artifactKey: string): { path: st
   if (!artifact) {
     return null;
   }
-  const fullPath = resolveRepoPath(artifact.path);
+  const fullPath = resolve(getRepoRoot(), artifact.path);
   if (!isSafePath(fullPath) || !existsSync(fullPath)) {
     return null;
   }
@@ -67,10 +67,5 @@ function readLogTail(run: RunRecord, maxLines: number): string[] {
 }
 
 function isSafePath(pathValue: string): boolean {
-  if (!isWithinRepo(pathValue)) {
-    return false;
-  }
-  const root = getRepoRoot().replace(/\\/g, "/");
-  const normalized = resolve(pathValue).replace(/\\/g, "/");
-  return normalized.startsWith(root);
+  return isPathInsideRepo(pathValue);
 }

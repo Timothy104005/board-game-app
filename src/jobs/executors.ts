@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { checkIR } from "../ir/checker.js";
 import { compileToGameModule } from "../ir/compileToGameModule.js";
 import { applyPatch } from "../ir/patch.js";
+import { getRepoRoot, toRepoRelativePath } from "../paths.js";
 import type { GameIRv0 } from "../ir/types.js";
 import { buildGapReport } from "../rulebook/gapReport.js";
 import { runRulebookPipeline } from "../rulebook/runRulebookPipeline.js";
@@ -127,7 +128,7 @@ async function executeApplyPatch(input: ExecutionInput): Promise<ExecutionResult
   }
 
   input.log(`[apply_patch] source=${sourceIrPath}`);
-  const ir = readJson(resolve(process.cwd(), sourceIrPath)) as unknown;
+  const ir = readJson(resolveRepoPath(sourceIrPath)) as unknown;
   const applied = applyPatch(ir, payload.patch);
   const checker = checkIR(applied.next);
   const gapReport = buildGapReport(applied.next, checker, {});
@@ -193,7 +194,7 @@ async function executeSimulate(input: ExecutionInput): Promise<ExecutionResult> 
   const botsMode = payload.botsMode ?? "auto";
   input.log(`[simulate] source=${sourceIrPath} seed=${seed} matches=${matches} maxTurns=${maxTurns} pool=${poolSize}`);
 
-  const ir = readJson(resolve(process.cwd(), sourceIrPath)) as GameIRv0;
+  const ir = readJson(resolveRepoPath(sourceIrPath)) as GameIRv0;
   const batch = await runBatchParallel({
     ir,
     seed,
@@ -260,7 +261,7 @@ async function executeTune(input: ExecutionInput): Promise<ExecutionResult> {
   input.log(
     `[tune] source=${sourceIrPath} seed=${seed} iter=${iterations} cand=${candidatesPerIter} matches=${matches} maxTurns=${maxTurns} pool=${poolSize}`
   );
-  const ir = readJson(resolve(process.cwd(), sourceIrPath)) as unknown;
+  const ir = readJson(resolveRepoPath(sourceIrPath)) as unknown;
   const tuned = await tuneIR({
     baseIr: ir,
     space: miniSplendorSpace,
@@ -349,21 +350,21 @@ function normalizePoolSize(requested: number | undefined, maxParallelPoolSize: n
 function writeJson(runDir: string, fileName: string, value: unknown): string {
   const full = resolve(runDir, fileName);
   writeFileSync(full, `${stableStringify(value)}\n`, "utf8");
-  return toRelative(full);
+  return toRepoRelativePath(full);
 }
 
 function writeText(runDir: string, fileName: string, value: string): string {
   const full = resolve(runDir, fileName);
   writeFileSync(full, value, "utf8");
-  return toRelative(full);
+  return toRepoRelativePath(full);
 }
 
 function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf8")) as unknown;
 }
 
-function toRelative(pathValue: string): string {
-  return pathValue.replace(`${process.cwd()}\\`, "").replace(/\\/g, "/");
+function resolveRepoPath(pathValue: string): string {
+  return resolve(getRepoRoot(), pathValue);
 }
 
 function timestamp(): string {

@@ -1,189 +1,168 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { spawn, spawnSync } from "node:child_process";
-import { createProject, enqueue, getRun, listProjects, listRuns } from "../src/jobs/queue.js";
+import { createProject, enqueue, getRun } from "../src/jobs/queue.js";
+import { runWorkerDaemon } from "../src/jobs/worker.js";
+import { getJobsRoot, getRepoRoot, resolveArtifactsPath } from "../src/paths.js";
 
 interface EnqueuedRun {
   runId: string;
   projectId: string;
+  projectName: string;
   jobType: string;
 }
 
-const timestamp = formatTimestamp(new Date());
-const outDir = resolve(process.cwd(), "artifacts", "schoolday", timestamp);
-mkdirSync(outDir, { recursive: true });
-
-const commandResults: Array<{ command: string; exitCode: number }> = [];
-const enqueued: EnqueuedRun[] = [];
-
-const testResult = spawnSync("npm", ["test"], {
-  cwd: process.cwd(),
-  stdio: "inherit",
-  shell: true
-});
-commandResults.push({
-  command: "npm test",
-  exitCode: testResult.status ?? -1
-});
-if ((testResult.status ?? 1) !== 0) {
-  failAndExit("npm test failed");
+interface ExampleSpec {
+  name: string;
+  file: string;
 }
 
-const workerProc = spawn("npm run jobs:worker", {
-  cwd: process.cwd(),
-  shell: true,
-  stdio: "inherit"
-});
+const EXAMPLES: ExampleSpec[] = [
+  { name: "tictactoe", file: "tictactoe.rulebook.txt" },
+  { name: "pig", file: "pig.rulebook.txt" },
+  { name: "nim", file: "nim.rulebook.txt" },
+  { name: "connect4", file: "connect4.rulebook.txt" },
+  { name: "mini_splendor", file: "mini_splendor.rulebook.txt" },
+  { name: "unknown", file: "unknown.rulebook.txt" }
+];
 
-const projectsByName = ensureSchooldayProjects();
-const projectIds = Object.values(projectsByName);
-for (const projectId of projectIds) {
-  const runId = enqueue("rulebook_run", projectId, {
-    seed: "42",
-    matches: 50,
-    maxTurns: 120
-  });
-  enqueued.push({ runId, projectId, jobType: "rulebook_run" });
-}
+async function main(): Promise<void> {
+  const repoRoot = getRepoRoot();
+  const jobsRoot = getJobsRoot();
+  const timestamp = formatTimestamp(new Date());
+  const outDir = resolveArtifactsPath("schoolday", timestamp);
+  mkdirSync(outDir, { recursive: true });
 
-const miniSplendorProjectId = projectsByName.mini_splendor;
-if (miniSplendorProjectId) {
-  const tuneRunId = enqueue("tune", miniSplendorProjectId, {
-    seed: "42",
-    iterations: 50,
-    candidatesPerIter: 50,
-    matches: 500,
-    maxTurns: 200,
-    poolSize: 2,
-    spaceId: "mini_splendor"
-  });
-  enqueued.push({ runId: tuneRunId, projectId: miniSplendorProjectId, jobType: "tune" });
-}
-
-if (miniSplendorProjectId) {
-  const simSplendor = enqueue("simulate", miniSplendorProjectId, {
-    seed: "42",
-    matches: 5000,
-    maxTurns: 200,
-    poolSize: 2
-  });
-  enqueued.push({ runId: simSplendor, projectId: miniSplendorProjectId, jobType: "simulate" });
-}
-
-const pigProjectId = projectsByName.pig;
-if (pigProjectId) {
-  const simPig = enqueue("simulate", pigProjectId, {
-    seed: "42",
-    matches: 5000,
-    maxTurns: 200,
-    poolSize: 2
-  });
-  enqueued.push({ runId: simPig, projectId: pigProjectId, jobType: "simulate" });
-}
-
-waitForCompletion(enqueued.map((entry) => entry.runId))
-  .then((statuses) => {
-    const summary = {
-      timestamp,
-      commandResults,
-      enqueued,
-      statuses,
-      runsByProject: Object.fromEntries(projectIds.map((projectId) => [projectId, listRuns(projectId)]))
-    };
-    const summaryPath = resolve(outDir, "summary.json");
-    writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
-    console.log(`[verify:schoolday] summary=${summaryPath}`);
-    workerProc.kill("SIGTERM");
-    process.exit(0);
-  })
-  .catch((error) => {
-    const message = error instanceof Error ? error.message : String(error);
-    workerProc.kill("SIGTERM");
-    failAndExit(message);
-  });
-
-function ensureSchooldayProjects(): Record<string, string> {
-  const examples: Array<{ name: string; file: string }> = [
-    { name: "tictactoe", file: "tictactoe.rulebook.txt" },
-    { name: "pig", file: "pig.rulebook.txt" },
-    { name: "nim", file: "nim.rulebook.txt" },
-    { name: "connect4", file: "connect4.rulebook.txt" },
-    { name: "mini_splendor", file: "mini_splendor.rulebook.txt" },
-    { name: "unknown", file: "unknown.rulebook.txt" }
-  ];
-
+  resetJobsRoot(jobsRoot);
+  const enqueued: EnqueuedRun[] = [];
   const projectsByName: Record<string, string> = {};
-  for (const entry of examples) {
-    const text = readFileSync(resolve(process.cwd(), "src", "rulebook", "examples", entry.file), "utf8");
-    const existing = findProjectIdByName(`schoolday-${entry.name}`);
-    if (existing) {
-      projectsByName[entry.name] = existing;
-      continue;
-    }
-    const projectId = enqueueProject(`schoolday-${entry.name}`, text);
-    projectsByName[entry.name] = projectId;
-  }
-  return projectsByName;
-}
 
-function enqueueProject(name: string, rulebookText: string): string {
-  const project = createProject({
-    name,
-    rulebookText,
-    seedDefault: "42"
+  for (const spec of EXAMPLES) {
+    const rulebookPath = resolve(repoRoot, "src", "rulebook", "examples", spec.file);
+    const rulebookText = readFileSync(rulebookPath, "utf8");
+    const project = createProject({
+      name: `schoolday-${spec.name}`,
+      rulebookText,
+      seedDefault: "42"
+    });
+    projectsByName[spec.name] = project.id;
+
+    const runId = enqueue("rulebook_run", project.id, {
+      seed: "42",
+      matches: 50,
+      maxTurns: 120
+    });
+    enqueued.push({
+      runId,
+      projectId: project.id,
+      projectName: project.name,
+      jobType: "rulebook_run"
+    });
+  }
+
+  const miniSplendorProjectId = projectsByName.mini_splendor;
+  if (miniSplendorProjectId) {
+    const tuneRunId = enqueue("tune", miniSplendorProjectId, {
+      seed: "42",
+      iterations: 20,
+      candidatesPerIter: 20,
+      matches: 200,
+      maxTurns: 200,
+      poolSize: 2,
+      spaceId: "mini_splendor"
+    });
+    enqueued.push({
+      runId: tuneRunId,
+      projectId: miniSplendorProjectId,
+      projectName: "schoolday-mini_splendor",
+      jobType: "tune"
+    });
+
+    const simRunId = enqueue("simulate", miniSplendorProjectId, {
+      seed: "42",
+      matches: 2000,
+      maxTurns: 200,
+      poolSize: 2
+    });
+    enqueued.push({
+      runId: simRunId,
+      projectId: miniSplendorProjectId,
+      projectName: "schoolday-mini_splendor",
+      jobType: "simulate"
+    });
+  }
+
+  const pigProjectId = projectsByName.pig;
+  if (pigProjectId) {
+    const simRunId = enqueue("simulate", pigProjectId, {
+      seed: "42",
+      matches: 2000,
+      maxTurns: 200,
+      poolSize: 2
+    });
+    enqueued.push({
+      runId: simRunId,
+      projectId: pigProjectId,
+      projectName: "schoolday-pig",
+      jobType: "simulate"
+    });
+  }
+
+  await runWorkerDaemon({
+    once: true,
+    pollIntervalMs: 200,
+    maxParallelPoolSize: 2
   });
-  return project.id as string;
-}
 
-function findProjectIdByName(name: string): string | null {
-  const project = listProjects().find((entry) => entry.name === name);
-  return project?.id ?? null;
-}
-
-async function waitForCompletion(runIds: string[]): Promise<Record<string, string>> {
-  const statuses: Record<string, string> = {};
-  const deadline = Date.now() + 1000 * 60 * 60 * 12;
-  while (Date.now() < deadline) {
-    let allDone = true;
-    for (const runId of runIds) {
-      const run = getRun(runId);
-      const status = run?.status ?? "missing";
-      statuses[runId] = status;
-      if (status === "queued" || status === "running") {
-        allDone = false;
-      }
+  const runSummaries = enqueued.map((entry) => {
+    const run = getRun(entry.runId);
+    if (!run) {
+      throw new Error(`run missing after worker completed: ${entry.runId}`);
     }
-    if (allDone) {
-      return statuses;
+    if (run.status === "queued" || run.status === "running") {
+      throw new Error(`run did not complete: ${run.id} status=${run.status}`);
     }
-    await sleep(1000);
-  }
-  throw new Error("verify:schoolday timed out waiting for jobs");
-}
+    if (!run.manifestPath) {
+      throw new Error(`run missing manifestPath: ${run.id}`);
+    }
+    const manifestAbs = resolve(repoRoot, run.manifestPath);
+    if (!existsSync(manifestAbs)) {
+      throw new Error(`manifest file not found: ${run.manifestPath}`);
+    }
+    return {
+      ...entry,
+      status: run.status,
+      error: run.error,
+      manifestPath: run.manifestPath,
+      startedAt: run.startedAt,
+      finishedAt: run.finishedAt
+    };
+  });
 
-function failAndExit(message: string): never {
+  const summary = {
+    timestamp,
+    seed: "42",
+    outDir: outDir.replace(/\\/g, "/"),
+    jobsRoot: jobsRoot.replace(/\\/g, "/"),
+    projectsByName,
+    runCount: runSummaries.length,
+    runs: runSummaries
+  };
   const summaryPath = resolve(outDir, "summary.json");
-  writeFileSync(
-    summaryPath,
-    `${JSON.stringify(
-      {
-        timestamp,
-        commandResults,
-        enqueued,
-        error: message
-      },
-      null,
-      2
-    )}\n`
-  );
+  writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
+  console.log(`[verify:schoolday] summary=${summaryPath}`);
+}
+
+main().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
   console.error(`[verify:schoolday] failed: ${message}`);
   process.exit(1);
-}
+});
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolvePromise) => {
-    setTimeout(resolvePromise, ms);
-  });
+function resetJobsRoot(jobsRoot: string): void {
+  if (existsSync(jobsRoot)) {
+    rmSync(jobsRoot, { recursive: true, force: true });
+  }
+  mkdirSync(jobsRoot, { recursive: true });
 }
 
 function formatTimestamp(date: Date): string {

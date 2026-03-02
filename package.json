@@ -12,6 +12,7 @@
     "sim:tictactoe": "tsx scripts/simulate.ts tictactoe",
     "sim:splendor": "tsx scripts/simulate.ts splendor",
     "jobs:worker": "tsx scripts/workerDaemon.ts",
+    "jobs:smoke": "tsx scripts/jobsSmoke.ts",
     "jobs:reset": "tsx scripts/jobsReset.ts",
     "tune:splendor": "tsx scripts/tune.ts --ir src/ir/examples/mini_splendor.ir.json --space mini_splendor --seed 42 --iters 30 --cand 20 --matches 200 --maxTurns 200",
     "tune:smoke": "tsx scripts/tune.ts --ir src/ir/examples/mini_splendor.ir.json --space mini_splendor --seed 42 --iters 2 --cand 3 --matches 20 --maxTurns 80",
