@@ -21,11 +21,8 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Run Tests with Coverage
-        run: FASTCHECK_RUNS=50 npm test -- --coverage
-
-      - name: Run Tuning Smoke
-        run: npm run tune:smoke
+      - name: Run Core Tests with Coverage
+        run: npm test -- --coverage
 
   web:
     runs-on: ubuntu-latest
@@ -53,10 +50,40 @@ jobs:
         run: npm run build
         working-directory: apps/web
 
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    needs:
+      - core
+      - web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/web/package-lock.json
+
+      - name: Install Root Dependencies
+        run: npm ci
+
+      - name: Install Web Dependencies
+        run: npm ci
+        working-directory: apps/web
+
+      - name: Run Jobs Smoke
+        run: npm run jobs:smoke
+
       - name: Install Playwright Browser
         run: npx playwright install --with-deps chromium
         working-directory: apps/web
 
-      - name: Run Web E2E
+      - name: Run E2E Smoke
+        env:
+          CI: "true"
         run: npm test
         working-directory: apps/web

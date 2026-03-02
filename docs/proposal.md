@@ -1,100 +1,100 @@
-# ?????(Rulebook Compiler Front-End)
+# 提案書 (Rulebook Compiler Front-End)
 
-## 0) ????(????? 1~7)
+## 0) 產品流程 (目標流程 1~7)
 
-1. ????????????????(rulebook)?
-2. ????????????????????
-3. ???? `irDraft`?`gaps`?`patchTemplate`?
-4. ????? gap ?? patch ?? IR?
-5. ??? IR ?????? `GameModule`?
-6. ???????(bots + seed),?? replay ? metrics?
-7. ????????????,????????????
+1. 使用者提供自然語言規則文件 (rulebook)。
+2. 系統做正規化與段落/訊號抽取。
+3. 產生 `irDraft`、`gaps`、`patchTemplate`。
+4. 人工審查 gap 並用 patch 修補 IR。
+5. 將 IR 編譯成可執行 `GameModule`。
+6. 以固定 seed 與 bots 跑模擬，輸出 replay 與 metrics。
+7. 所有結果寫入 artifacts，提供可追溯與可重跑能力。
 
-## 1) ??????(v1 scope / v1 out-of-scope)
+## 1) 產品範圍 (v1 scope / v1 out-of-scope)
 
 **v1 Scope**
-- ???? -> IR ??(deterministic)?
-- gap report + patch template(??????)?
-- IR -> compiler -> ??(? replay?metrics)?
-- Invariant gate + determinism ???
-- CLI ???? artifacts ???
+- 規則文字 -> IR 草稿，且流程可重現 (deterministic)。
+- 產出 gap report 與 patch template (可人工修補)。
+- IR -> compiler -> 模擬，並輸出 replay/metrics。
+- Invariant gate 與 determinism 檢查。
+- CLI 與本地 artifacts 工作流。
 
 **v1 Out-of-Scope**
-- ????????????
-- LLM ????? API?
-- ?? UI ????(? repo ?? CLI + docs ??)?
-- ??????????????
+- 完整商業化帳務與多租戶隔離。
+- 對外 LLM 雲端 API 依賴。
+- 複雜視覺化編輯器 (v1 以 CLI 與基本 Web MVP 為主)。
+- 分散式叢集排程與跨區部署。
 
-## 2) ????(A~G:??/??/IR/??/Bot/??/????)
+## 2) 系統組件 (A~G: 輸入/解析/IR/編譯/Bot/模擬/產物)
 
-A. **???**:rulebook ?????  
-B. **???**:normalize / segment / extractSignals?  
-C. **IR ?**:draftIR?schema/checker?gap report?patch template?  
-D. **???**:compileToGameModule + engine contract(initial/legal/apply/terminal/score)?  
-E. **Bot ?**:random / greedy,??????  
-F. **???**:replay event(action + state hash)?  
-G. **?????**:runMatch/runBatch,?? summary ? artifacts?
+A. **輸入層**: rulebook 原始文字。  
+B. **解析層**: normalize / segment / extractSignals。  
+C. **IR 層**: draftIR、schema/checker、gap report、patch template。  
+D. **編譯層**: compileToGameModule + engine contract (initial/legal/apply/terminal/score)。  
+E. **Bot 層**: random / greedy 策略，固定 seed。  
+F. **模擬層**: replay event (action + state hash)。  
+G. **產物層**: runMatch/runBatch，輸出 summary 與 artifacts。  
 
-## 3) ??????(?? + ?? Next.js ??)
+## 3) 技術選型 (核心 + 後續 Next.js 擴展)
 
-**??(???)**
+**核心 (已落地)**
 - Node.js + TypeScript
 - Vitest + coverage
-- Zod(IR schema ??)
-- tsx(CLI script ??)
+- Zod (IR schema 驗證)
+- tsx (CLI script 執行)
 
-**????(???)**
-- Next.js(?? + ??????)
-- Worker/Queue(????????)
+**產品化 (進行中)**
+- Next.js (Web Dashboard + Server Actions)
+- Worker/Queue (耐久化背景任務)
 
-## 4) ???????(Milestone 1~5)
+## 4) 里程碑規劃 (Milestone 1~5)
 
-### Milestone 1(DONE)
-- Purpose: ????????????????
-- Deliverables: engine contract?invariantGate????????
+### Milestone 1 (DONE)
+- Purpose: 建立引擎契約與不變量守護。
+- Deliverables: engine contract、invariantGate、可重現執行模型。
 - Acceptance criteria:
   - `npm test -- --coverage`
-- Current status in this repo: ?????????(`src/engine/*`, `src/games/*`)?
+- Current status in this repo: 已完成 (`src/engine/*`, `src/games/*`)。
 
-### Milestone 2(DONE)
-- Purpose: ?? IR v0 ? compiler ???
-- Deliverables: `schema.ts`, `checker.ts`, `compileToGameModule.ts`?
+### Milestone 2 (DONE)
+- Purpose: 建立 IR v0 與 compiler 主幹。
+- Deliverables: `schema.ts`, `checker.ts`, `compileToGameModule.ts`。
 - Acceptance criteria:
   - `npm test -- --coverage`
-- Current status in this repo: ???,? integration tests(`src/ir/*`)?
+- Current status in this repo: 已完成且有 integration tests (`src/ir/*`)。
 
-### Milestone 3(DONE)
-- Purpose: ?? rulebook -> IR -> compile -> simulate ???
-- Deliverables: rulebook pipeline?gaps/patch template?`rb:run:*` scripts?
+### Milestone 3 (DONE)
+- Purpose: 完成 rulebook -> IR -> compile -> simulate 主流程。
+- Deliverables: rulebook pipeline、gaps/patch template、`rb:run:*` scripts。
 - Acceptance criteria:
   - `npm run rb:run:tictactoe`
   - `npm run rb:run:pig`
-- Current status in this repo: ???,? golden ? determinism ??(`src/rulebook/*`, `src/sim/*`)?
+- Current status in this repo: 已完成，含 golden 與 determinism 驗證 (`src/rulebook/*`, `src/sim/*`)。
 
-### Milestone 4(TODO)
-- Purpose: ??????? patch engine ???
-- Deliverables: tuning objective?A/B ??????? patch ?????
+### Milestone 4 (DONE)
+- Purpose: 補強調參與受限 patch engine。
+- Deliverables: tuning objective、A/B 指標比較、受限 patch 操作。
 - Acceptance criteria:
   - `npm test -- --coverage`
-  - ??? seed ?? before/after ????
-- Current status in this repo: ?????,??? tuner ?????
+  - 固定 seed 下 before/after 可比較
+- Current status in this repo: 已完成基礎能力，持續擴展搜尋空間與門檻。
 
-### Milestone 5(TODO)
-- Purpose: ???? SaaS ?????
-- Deliverables: Web ?????????????????????
+### Milestone 5 (IN PROGRESS)
+- Purpose: 產品化 Web SaaS MVP 與可維運工作流。
+- Deliverables: Web UI + Durable Jobs + Worker + E2E + CI 分層。
 - Acceptance criteria:
-  - 1k/10k ????? queue ??
-  - ??? artifacts ???
-- Current status in this repo: ?????,???????
+  - 任務可追蹤狀態與 artifacts。
+  - replay 與 run logs 可在 Web 檢視。
+- Current status in this repo: 進行中，已具備端到端 MVP，持續 hardening。
 
-## 5) ??????:Game IR v0
+## 5) 參考定義: Game IR v0
 
-????? action ????:
-- [Game IR v0 ??](./ir_v0.md)
+目前 IR 與 action 規格請參考:
+- [Game IR v0 文件](./ir_v0.md)
 
-## 6) ????:Replay / Metrics / Gap report / Patch template
+## 6) 產物格式: Replay / Metrics / Gap report / Patch template
 
-### Replay event(??)
+### Replay event (示例)
 ```json
 {
   "index": 3,
@@ -107,7 +107,7 @@ G. **?????**:runMatch/runBatch,?? summary ? artifacts?
 }
 ```
 
-### Simulation summary(??)
+### Simulation summary (示例)
 ```json
 {
   "matches": 20,
@@ -117,7 +117,7 @@ G. **?????**:runMatch/runBatch,?? summary ? artifacts?
 }
 ```
 
-### Gap report(??)
+### Gap report (示例)
 ```json
 {
   "summary": { "errors": 2, "warnings": 1 },
@@ -127,7 +127,7 @@ G. **?????**:runMatch/runBatch,?? summary ? artifacts?
 }
 ```
 
-### Patch template(??)
+### Patch template (示例)
 ```json
 {
   "patchTemplate": {
@@ -139,60 +139,59 @@ G. **?????**:runMatch/runBatch,?? summary ? artifacts?
 }
 ```
 
-## 7) ???? + ??
+## 7) 風險與對策
 
-- **??????**:??????????  
-  ??:?? gap + patch ??????,???????
-- **??????**:?????????????  
-  ??:schema/checker ????,??????
-- **????(????)**:bot ??????????  
-  ??:?? seed + ? bot ????,???????
-- **patch ????**:??? patch ?? IR ???  
-  ??:??? `set/append/merge` ??????????
+- **規則語意不完整**: 文本可能缺條件或例外。  
+  對策: 以 gap + patch 人工閉環，避免直接自動上線。
+- **編譯/執行不一致**: schema/checker 與 runtime 行為偏移。  
+  對策: checker、integration tests 與 invariant gate 並行把關。
+- **隨機性導致不可重現**: 測試與模擬結果漂移。  
+  對策: 固定 seed + 固定 bot 組合 + 回放 hash 驗證。
+- **patch 失控**: 任意 patch 可能破壞 IR。  
+  對策: 僅允許 `set/append/merge`，並在 checker/compile 前後驗證。
 
-## 8) ??/??/??
+## 8) 成功指標 / 非目標 / 未來
 
-**????**
-- ????????????????????
+**成功指標**
+- 固定輸入可重跑出一致結果與可追溯 artifacts。
 
-**???????**
-- ????????????????????
-- ????????????????????
-- ??????????????????????
-- ?????????(data residency)????????
-- ?????????????????
+**非目標 (目前階段)**
+- 即時多人協作編輯。
+- 跨雲地區高可用部署。
+- 完整商務與合規治理。
 
-## M5 MVP Architecture Notes (2026-03-02)
+**未來方向**
+- 更完整的資料治理與審計流程。
+- 更強的 IR lint 與 patch 建議能力。
+- 可控的多工作者擴展策略。
+- 部署與權限模型標準化。
 
-### Implemented Scope
+## M5 補充證據與架構備註 (2026-03-03)
 
-- Added `apps/web` Next.js App Router dashboard:
-  - `/` projects list
-  - `/projects/new` project creation (paste/upload text)
-  - `/projects/[id]` run controls and latest artifacts preview
-  - `/runs/[runId]` run status, log tail, artifact links
-  - `/replays/[replayId]` deterministic replay viewer
-- Added route handlers under `apps/web/app/api/*` for project/run operations.
-- Added server actions for project creation and job enqueue flows.
-- Added durable root job system under `src/jobs/*` with persisted store:
+### 已實作範圍
+- `apps/web` Next.js App Router 儀表板:
+  - `/` 專案列表
+  - `/projects/new` 建專案 (貼上/上傳 rulebook)
+  - `/projects/[id]` 任務控制、最近 runs、gap/patch 預覽
+  - `/runs/[runId]` 狀態輪詢、logs tail、artifact links
+  - `/replays/[replayId]` step 導航與差異檢視
+- `src/jobs/*` 耐久化任務系統:
   - `projects.json`, `runs.json`, `queue.json`
-  - per-run manifest/logs/artifacts under `artifacts/jobs/<runId>/`
-- Added worker daemon + CLI:
+  - run artifacts/log/manifest 輸出到 `artifacts/jobs/<runId>/`
+- Worker daemon:
   - `npm run jobs:worker`
-  - sequential queue consumption with deterministic status transitions
-- Added school-day soak verifier:
-  - `npm run verify:schoolday`
+  - 支援 `--once`, `--pollMs`, `--pool`
+  - 啟動時可回收中斷中的 `running` 任務
 
-### Determinism and Auditability
+### 可重現與可追溯性
+- 預設 seed 維持 `"42"`。
+- 任務 ID 採單調遞增 (`p000001`, `r000001`)。
+- 每次 run 皆寫入 `manifest.json` 與 `logs.txt`。
+- Web 端以 manifest 路徑讀取 artifacts，確保資料來源一致。
 
-- Default seed remains `"42"` unless explicitly overridden.
-- Queue IDs are deterministic monotonic counters (`p000001`, `r000001`).
-- Runs record explicit manifests with config, status, artifact pointers, and errors.
-- Replay/stat artifact rendering uses manifest pointers and stable file locations.
-
-### CI Productization Updates
-
-- Split CI workflow:
-  - `core` job: root tests with coverage + tuning smoke
-  - `web` job: root install, web install, web build, Playwright critical flow
-- `FASTCHECK_RUNS=50` enforced in CI core tests.
+### M5 證據命令
+1. `npm run jobs:worker`
+2. `cd apps/web && npm run dev`
+3. `npm run jobs:smoke`
+4. `cd apps/web && npm test`
+5. `npm run verify:schoolday`
