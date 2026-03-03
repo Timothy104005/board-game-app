@@ -1,224 +1,156 @@
-# 提案書 (Rulebook Compiler Front-End)
+# 企劃書：Rulebook Compiler + Web MVP
 
-## 0) 產品流程 (目標流程 1~7)
+本文是本 repo 的主企劃文件，描述目前已實作能力、可驗證範圍與後續路線。  
+定位原則：文件內容必須與程式現況一致，並可由 `docs/evidence/*` 追溯。
 
-1. 使用者提供自然語言規則文件 (rulebook)。
-2. 系統做正規化與段落/訊號抽取。
+## 0) 產品定義（使用者流程 1~7）
+
+1. 使用者建立專案並提供規則來源（文字或 PDF）。
+2. 系統將規則轉為標準化文字（PDF v0 僅文字抽取，不做 OCR）。
 3. 產生 `irDraft`、`gaps`、`patchTemplate`。
-4. 人工審查 gap 並用 patch 修補 IR。
-5. 將 IR 編譯成可執行 `GameModule`。
-6. 以固定 seed 與 bots 跑模擬，輸出 replay 與 metrics。
-7. 所有結果寫入 artifacts，提供可追溯與可重跑能力。
+4. 使用者可套用 patch 修補 IR。
+5. 編譯 IR 成可執行 `GameModule`。
+6. 以固定 seed 執行模擬，產生 replay 與 metrics。
+7. 全部過程輸出至 artifacts，並可在 Web 頁面查詢 run 狀態與產物。
 
-## 1) 產品範圍 (v1 scope / v1 out-of-scope)
+## 1) 範圍與非目標（v1 scope / out-of-scope）
 
-**v1 Scope**
+### v1 Scope
 
-- 規則文字與 PDF 文字抽取 -> IR 草稿，且流程可重現 (deterministic)。
-- 產出 gap report 與 patch template (可人工修補)。
-- IR -> compiler -> 模擬，並輸出 replay/metrics。
-- Invariant gate 與 determinism 檢查。
-- CLI 與本地 artifacts 工作流。
+- Rulebook（text/pdf）到 IR 的可重現流程。
+- Checker + compiler + simulation 的一條龍執行鏈。
+- Web MVP（專案、排程任務、查看 run/replay/artifacts）。
+- Durable jobs（queue/store/worker）與 manifest/log 追蹤。
+- 測試驗證（Vitest coverage、Playwright critical flow）。
 
-**v1 Out-of-Scope**
+### v1 Out-of-Scope
 
-- 完整商業化帳務與多租戶隔離。
-- 對外 LLM 雲端 API 依賴。
-- 複雜視覺化編輯器 (v1 以 CLI 與基本 Web MVP 為主)。
-- 分散式叢集排程與跨區部署。
-- OCR (v0 PDF ingestion 僅處理可抽取文字 PDF)。
+- OCR 與掃描型 PDF 辨識。
+- 雲端多租戶、帳務、權限治理完整產品化。
+- 即時協作編輯器與進階視覺化建模 UI。
+- 執行期外部網路依賴（runtime 不依賴外部 API）。
 
-## 2) 系統組件 (A~G: 輸入/解析/IR/編譯/Bot/模擬/產物)
+## 2) 系統架構（A~G）
 
-A. **規則輸入層**: rulebook 原始文字，或 PDF 上傳後的抽取文字 (v0 不做 OCR)。  
-B. **解析層**: normalize / segment / extractSignals。  
-C. **IR 層**: draftIR、schema/checker、gap report、patch template。  
-D. **編譯層**: compileToGameModule + engine contract (initial/legal/apply/terminal/score)。  
-E. **Bot 層**: random / greedy 策略，固定 seed。  
-F. **模擬層**: replay event (action + state hash)。  
-G. **產物層**: runMatch/runBatch，輸出 summary 與 artifacts。  
+### A. 規則輸入層
+- 文字規則：專案建立時直接輸入。
+- PDF 規則：`/api/projects/[id]/upload-pdf` 上傳後由 worker 抽取文字。
 
-## 3) 技術選型 (核心 + 後續 Next.js 擴展)
+### B. 規則抽取器
+- 目前為 deterministic recognizers（`draftIRFromRulebookText` 等）。
+- 未來可擴展 optional LLM extractor（非當前實作）。
 
-**核心 (已落地)**
+### C. 遊戲 IR
+- 採 IR v0 schema（Zod）與 checker 檢查。
+- 產物包含 `ir`, `gaps`, `patchTemplate`。
+
+### D. 引擎執行層
+- `createInitialState / legalActions / applyAction / isTerminal / score`。
+- 固定 seed + deterministic replay hash 驗證。
+
+### E. Bot 層
+- 已實作 `random`、`greedy`。
+- 未來可擴展 MCTS / search bot。
+
+### F. 敘事層
+- 目前未實作（future）。
+- 預留給自然語言解釋、教學摘要、賽局敘事化輸出。
+
+### G. 模擬與分析層
+- batch simulation、summary metrics、sample replay。
+- 與 jobs/worker 結合輸出 manifest + artifacts。
+
+## 3) 工具與技術棧
 
 - Node.js + TypeScript
-- Vitest + coverage
-- Zod (IR schema 驗證)
-- tsx (CLI script 執行)
+- Vitest + coverage provider v8
+- Zod（IR schema validation）
+- tsx（CLI scripts）
+- Next.js App Router + Route Handlers（`apps/web`）
+- Playwright（Web critical flow E2E）
 
-**產品化 (進行中)**
+## 4) 里程碑（M1~M5）
 
-- Next.js (Web Dashboard + Server Actions/Route Handlers)
-- Worker/Queue (耐久化背景任務)
-- PDF 文字抽取 (pdf-parse)
-
-## 4) 里程碑規劃 (Milestone 1~5)
-
-### Milestone 1 (DONE)
-
-- Purpose: 建立引擎契約與不變量守護。
-- Deliverables: engine contract、invariantGate、可重現執行模型。
-- Acceptance criteria:
+### M1：Engine Contract + Invariants
+- Purpose：建立可重現的引擎契約與不變量檢查。
+- Deliverables：engine contract、invariant gate、基礎遊戲執行模型。
+- Acceptance criteria：
   - `npm test -- --coverage`
-- Current status in this repo: 已完成 (`src/engine/*`, `src/games/*`)。
+- Current status in this repo：
+  - 已完成（`src/engine/*`, `src/games/*`）
+  - 證據：[npm_test.txt](./evidence/npm_test.txt)
 
-### Milestone 2 (DONE)
-
-- Purpose: 建立 IR v0 與 compiler 主幹。
-- Deliverables: `schema.ts`, `checker.ts`, `compileToGameModule.ts`。
-- Acceptance criteria:
+### M2：IR v0 + Compiler
+- Purpose：建立 IR schema/checker/compile 主幹。
+- Deliverables：IR v0 schema、checker、compiler、整合測試。
+- Acceptance criteria：
   - `npm test -- --coverage`
-- Current status in this repo: 已完成且有 integration tests (`src/ir/*`)。
+  - `npm run rb:run:tictactoe`
+- Current status in this repo：
+  - 已完成（`src/ir/*`）
+  - 證據：[npm_test.txt](./evidence/npm_test.txt)、[rb_run_tictactoe.txt](./evidence/rb_run_tictactoe.txt)
 
-### Milestone 3 (DONE)
-
-- Purpose: 完成 rulebook -> IR -> compile -> simulate 主流程。
-- Deliverables: rulebook pipeline、gaps/patch template、`rb:run:*` scripts。
-- Acceptance criteria:
+### M3：Rulebook Pipeline + Simulation
+- Purpose：完成 rulebook 到模擬產物流程。
+- Deliverables：`ir/gaps/patchTemplate/sim summary/replay` 輸出。
+- Acceptance criteria：
   - `npm run rb:run:tictactoe`
   - `npm run rb:run:pig`
-- Current status in this repo: 已完成，含 golden 與 determinism 驗證 (`src/rulebook/*`, `src/sim/*`)。
+  - `npm run sim:tictactoe`
+- Current status in this repo：
+  - 已完成（`src/rulebook/*`, `src/sim/*`）
+  - 證據：[rb_run_tictactoe.txt](./evidence/rb_run_tictactoe.txt)、[rb_run_pig.txt](./evidence/rb_run_pig.txt)、[sim_tictactoe.txt](./evidence/sim_tictactoe.txt)
 
-### Milestone 4 (DONE)
-
-- Purpose: 補強調參與受限 patch engine。
-- Deliverables: tuning objective、A/B 指標比較、受限 patch 操作。
-- Acceptance criteria:
+### M4：Tuning + Restricted Patch Engine
+- Purpose：以可控 patch 空間做 A/B 調參。
+- Deliverables：tuner、objective、restricted patch ops、報告輸出。
+- Acceptance criteria：
   - `npm test -- --coverage`
-  - 固定 seed 下 before/after 可比較
-- Current status in this repo: 已完成基礎能力，持續擴展搜尋空間與門檻。
+  - `npm run sim:splendor`
+- Current status in this repo：
+  - 已完成 v1 能力（`src/tuning/*`）
+  - 證據：[npm_test.txt](./evidence/npm_test.txt)、[sim_splendor.txt](./evidence/sim_splendor.txt)
 
-### Milestone 5 (IN PROGRESS)
+### M5：Productization（Web + Jobs）
+- Purpose：提供可操作的 Web MVP 與耐久任務執行。
+- Deliverables：Web 頁面、queue/store/worker、PDF ingestion、E2E、CI 分層。
+- Acceptance criteria：
+  - `npm test -- --coverage`
+  - `cd apps/web && npm run build`
+- Current status in this repo：
+  - IN PROGRESS（核心流程可用，持續 hardening）
+  - 證據：[npm_test.txt](./evidence/npm_test.txt)、[web_build.txt](./evidence/web_build.txt)、[git_log.txt](./evidence/git_log.txt)
 
-- Purpose: 產品化 Web SaaS MVP 與可維運工作流。
-- Deliverables: Web UI + Durable Jobs + Worker + E2E + CI 分層 + PDF ingestion。
-- Acceptance criteria:
-  - 任務可追蹤狀態與 artifacts。
-  - replay 與 run logs 可在 Web 檢視。
-  - PDF 上傳 -> 抽取文字 -> rulebook run 可在 UI 完成。
-- Current status in this repo: 進行中，已具備端到端 MVP，持續 hardening。
+## 5) IR v0 規格連結
 
-## 5) 參考定義: Game IR v0
+- [IR v0 規格文件](./ir_v0.md)
 
-目前 IR 與 action 規格請參考:
+## 6) 輸出規格（Artifacts）連結
 
-- [Game IR v0 文件](./ir_v0.md)
-
-## 6) 產物格式: Replay / Metrics / Gap report / Patch template
-
-### Replay event (示例)
-
-```json
-{
-  "index": 3,
-  "seed": "demo-seed",
-  "turn": 4,
-  "actor": "0",
-  "action": { "type": "tictactoe_place", "payload": { "x": 1, "y": 1 } },
-  "stateHashBefore": "3ab1f2de",
-  "stateHashAfter": "24bc9ad1"
-}
-```
-
-### Simulation summary (示例)
-
-```json
-{
-  "matches": 20,
-  "winRates": { "0": 0.55, "1": 0.35, "draw": 0.1 },
-  "averageTurns": 7.8,
-  "actionDistribution": { "tictactoe_place": 1 }
-}
-```
-
-### Gap report (示例)
-
-```json
-{
-  "summary": { "errors": 2, "warnings": 1 },
-  "gaps": [
-    { "filePointer": "/actions", "severity": "error", "message": "actions: Array must contain at least 1 element(s)" }
-  ]
-}
-```
-
-### Patch template (示例)
-
-```json
-{
-  "patchTemplate": {
-    "operations": [
-      { "op": "set", "path": "/meta/name", "value": "TODO_NAME" },
-      { "op": "set", "path": "/actions", "value": [{ "kind": "TODO_ACTION", "params": {} }] }
-    ]
-  }
-}
-```
+- [Artifacts 輸出規格](./artifacts.md)
 
 ## 7) 風險與對策
 
-- **規則語意不完整**: 文本可能缺條件或例外。  
-  對策: 以 gap + patch 人工閉環，避免直接自動上線。
-- **編譯/執行不一致**: schema/checker 與 runtime 行為偏移。  
-  對策: checker、integration tests 與 invariant gate 並行把關。
-- **隨機性導致不可重現**: 測試與模擬結果漂移。  
-  對策: 固定 seed + 固定 bot 組合 + 回放 hash 驗證。
-- **patch 失控**: 任意 patch 可能破壞 IR。  
-  對策: 僅允許 `set/append/merge`，並在 checker/compile 前後驗證。
-- **PDF 品質差異**: 掃描型文件可能無法抽取文字。  
-  對策: v0 僅支援可抽取文字 PDF，抽取失敗會保留錯誤訊息並產生可追蹤輸出。
+- 規則文字語意不足：以 `gaps + patch` 形成人工校正閉環。
+- 編譯與執行落差：以 checker + integration tests + invariants 交叉驗證。
+- 非決定性漂移：固定 seed、固定流程、固定輸出結構。
+- 任務中斷或佇列異常：durable store + recovery 邏輯 + manifest/log 可追蹤。
+- PDF 品質不一：v0 僅保證可抽取文字 PDF，失敗時保留錯誤訊息。
 
-## 8) 成功指標 / 非目標 / 未來
+## 8) Compliance / IP / Privacy 假設
 
-**成功指標**
+- 使用者上傳內容僅用於本次專案執行，不做對外再散布。
+- 專案目前以本機檔案流程為主，無執行期第三方外部資料傳輸。
+- Artifacts 可能含使用者規則內容，需由部署方管理存取與保存週期。
+- 後續待驗證項目：法務條款、資料保留政策、刪除請求流程、審計權限。
 
-- 固定輸入可重跑出一致結果與可追溯 artifacts。
-- Web 端可完成「上傳 PDF -> 跑任務 -> 看 IR/gaps/replay」。
+## Reality Check（企劃聲明 vs Repo 證據）
 
-**非目標 (目前階段)**
-
-- 即時多人協作編輯。
-- 跨雲地區高可用部署。
-- 完整商務與合規治理。
-
-**未來方向**
-
-- 更完整的資料治理與審計流程。
-- 更強的 IR lint 與 patch 建議能力。
-- 可控的多工作者擴展策略。
-- 部署與權限模型標準化。
-
-## M5 補充證據與架構備註 (2026-03-03)
-
-### 已實作範圍
-
-- `apps/web` Next.js App Router 儀表板:
-  - `/` 專案列表
-  - `/projects/new` 建專案 (貼上/上傳 rulebook)
-  - `/projects/[id]` 任務控制、PDF 上傳、最近 runs、gap/patch 預覽
-  - `/runs/[runId]` 狀態輪詢、logs tail、artifact links
-  - `/replays/[replayId]` step 導航與差異檢視
-- `src/jobs/*` 耐久化任務系統:
-  - `projects.json`, `runs.json`, `queue.json`
-  - run artifacts/log/manifest 輸出
-- PDF ingestion:
-  - `POST /api/projects/[id]/upload-pdf`
-  - `rulebook_run_pdf` 任務將 PDF 抽取文字後走同一條 rulebook pipeline
-  - 輸出 `rulebook.extracted.txt`, `rulebook.ir.json`, `rulebook.gaps.json`, `rulebook.patch.template.json`, `rulebook.replay.sample.json`
-
-### 可重現與可追溯性
-
-- 預設 seed 維持 `"42"`。
-- 任務 ID 採單調遞增 (`p000001`, `r000001`)。
-- 每次 run 皆寫入 `manifest.json` 與 `logs.txt`。
-- PDF manifest 會記錄 `sourceType=pdf`, `uploadId`, `pdfSha256`。
-
-### M5 證據命令
-
-1. `npm test -- --coverage`
-2. `npm run jobs:worker`
-3. `cd apps/web && npm run dev`
-4. 在 UI 執行 PDF 上傳 -> Run from PDF -> 檢視 IR/gaps/replay
-5. `cd apps/web && npm test -- --grep "critical flow"`
-6. `npm run jobs:smoke`
+| Plan claim | Repo evidence | Status |
+|---|---|---|
+| Core test coverage 可執行 | [npm_test.txt](./evidence/npm_test.txt) | Done |
+| 文字規則可跑完整 pipeline | [rb_run_tictactoe.txt](./evidence/rb_run_tictactoe.txt), [rb_run_pig.txt](./evidence/rb_run_pig.txt) | Done |
+| 模擬指標可產生 | [sim_tictactoe.txt](./evidence/sim_tictactoe.txt), [sim_splendor.txt](./evidence/sim_splendor.txt) | Done |
+| Web 可建置 | [web_build.txt](./evidence/web_build.txt) | Done |
+| Durable jobs + Web productization 完成度 | [git_log.txt](./evidence/git_log.txt) | In progress |
+| 合規流程（法務/刪除流程）制度化 | [git_status.txt](./evidence/git_status.txt) | TODO |
