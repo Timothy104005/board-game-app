@@ -24,6 +24,9 @@ jobs:
       - name: Run Core Tests with Coverage
         run: npm test -- --coverage
 
+      - name: Check Docs Links
+        run: npm run docs:check
+
   web:
     runs-on: ubuntu-latest
     steps:
