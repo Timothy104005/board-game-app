@@ -1,10 +1,13 @@
-import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { dirname, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { checkIR } from "../ir/checker.js";
 import { compileToGameModule } from "../ir/compileToGameModule.js";
 import { applyPatch } from "../ir/patch.js";
-import { getRepoRoot, toRepoRelativePath } from "../paths.js";
+import { getRepoRoot, isPathInsideRepo, toRepoRelativePath } from "../paths.js";
 import type { GameIRv0 } from "../ir/types.js";
+import { getUploadExtractedTextPath, getUploadPdfPath, isValidUploadId } from "../rulebook/pdfArtifacts.js";
+import { extractTextFromPdfBuffer } from "../rulebook/pdfExtract.js";
 import { buildGapReport } from "../rulebook/gapReport.js";
 import { runRulebookPipeline } from "../rulebook/runRulebookPipeline.js";
 import { runBatchParallel } from "../sim/runBatchParallel.js";
@@ -16,6 +19,7 @@ import type {
   ApplyPatchPayload,
   JobType,
   ProjectRecord,
+  RulebookRunPdfPayload,
   RulebookRunPayload,
   RunManifest,
   RunRecord,
@@ -40,6 +44,8 @@ export async function executeRun(input: ExecutionInput): Promise<ExecutionResult
   switch (input.run.jobType) {
     case "rulebook_run":
       return executeRulebookRun(input);
+    case "rulebook_run_pdf":
+      return executeRulebookRunPdf(input);
     case "apply_patch":
       return executeApplyPatch(input);
     case "simulate":
@@ -107,7 +113,108 @@ async function executeRulebookRun(input: ExecutionInput): Promise<ExecutionResul
           averageTurns: result.simulation.summary.averageTurns
         }
       : undefined,
-    notes: result.ok ? ["pipeline_ok"] : ["pipeline_not_ok"]
+    notes: result.ok ? ["pipeline_ok"] : ["pipeline_not_ok"],
+    sourceType: "text"
+  };
+
+  return {
+    ok: true,
+    manifest,
+    projectPatch: {
+      latestIrPath: irPath,
+      latestReplayPath: replayPath
+    }
+  };
+}
+
+async function executeRulebookRunPdf(input: ExecutionInput): Promise<ExecutionResult> {
+  const payload = input.run.payload as RulebookRunPdfPayload;
+  if (!payload.uploadId) {
+    throw new Error("rulebook_run_pdf requires payload.uploadId");
+  }
+  if (!isValidUploadId(payload.uploadId)) {
+    throw new Error(`invalid uploadId: ${payload.uploadId}`);
+  }
+  const seed = payload.seed ?? input.project.seedDefault;
+  const matches = payload.games ?? 20;
+  const maxTurns = payload.maxTurns ?? 80;
+  const defaultPdfPath = getUploadPdfPath(input.project.id, payload.uploadId);
+  const resolvedPdfPath = payload.pdfPath ? resolveRepoPath(payload.pdfPath) : defaultPdfPath;
+  if (!isPathInsideRepo(resolvedPdfPath)) {
+    throw new Error(`pdf path is outside repository: ${resolvedPdfPath}`);
+  }
+  if (!existsSync(resolvedPdfPath)) {
+    throw new Error(`pdf file not found: ${resolvedPdfPath}`);
+  }
+
+  input.log(`[rulebook_run_pdf] upload=${payload.uploadId} seed=${seed} games=${matches} maxTurns=${maxTurns}`);
+
+  const pdfBuffer = readFileSync(resolvedPdfPath);
+  const pdfSha256 = createHash("sha256").update(pdfBuffer).digest("hex");
+  const extracted = await extractTextFromPdfBuffer(pdfBuffer);
+  const extractedUploadPath = getUploadExtractedTextPath(input.project.id, payload.uploadId);
+  mkdirSync(dirname(extractedUploadPath), { recursive: true });
+  writeFileSync(extractedUploadPath, `${extracted.text}\n`, "utf8");
+  const extractedUploadPathRel = toRepoRelativePath(extractedUploadPath);
+  const extractedRunPath = writeText(input.run.runDir, "rulebook.extracted.txt", `${extracted.text}\n`);
+
+  const result = runRulebookPipeline({
+    text: extracted.text,
+    seed,
+    matches,
+    maxTurns
+  });
+
+  const irPath = writeJson(input.run.runDir, "rulebook.ir.json", result.irDraft);
+  const gapsPath = writeJson(input.run.runDir, "rulebook.gaps.json", result.gapReport);
+  const patchPath = writeJson(input.run.runDir, "rulebook.patch.template.json", {
+    patchTemplate: result.patchTemplate
+  });
+
+  const artifacts: Record<string, string> = {
+    extractedText: extractedRunPath,
+    uploadExtractedText: extractedUploadPathRel,
+    ir: irPath,
+    gaps: gapsPath,
+    patchTemplate: patchPath
+  };
+
+  let replayPath: string | null = null;
+  if (result.simulation) {
+    artifacts.simSummary = writeJson(input.run.runDir, "rulebook.sim.summary.json", result.simulation.summary);
+    replayPath = writeJson(input.run.runDir, "rulebook.replay.sample.json", result.simulation.sampleReplay);
+    artifacts.sampleReplay = replayPath;
+  }
+
+  const notes = result.ok ? ["pipeline_ok"] : ["pipeline_not_ok"];
+  if (extracted.meta.error) {
+    notes.push(`pdf_extract_warning: ${extracted.meta.error}`);
+  }
+
+  const manifest: RunManifest = {
+    runId: input.run.id,
+    projectId: input.project.id,
+    jobType: "rulebook_run_pdf",
+    status: "succeeded",
+    createdAt: input.run.createdAt,
+    startedAt: input.run.startedAt,
+    finishedAt: timestamp(),
+    seed,
+    config: {
+      matches,
+      maxTurns
+    },
+    artifacts,
+    metrics: result.simulation
+      ? {
+          winRates: result.simulation.summary.winRates,
+          averageTurns: result.simulation.summary.averageTurns
+        }
+      : undefined,
+    notes,
+    sourceType: "pdf",
+    uploadId: payload.uploadId,
+    pdfSha256
   };
 
   return {
@@ -372,5 +479,5 @@ function timestamp(): string {
 }
 
 export function isJobType(value: string): value is JobType {
-  return value === "rulebook_run" || value === "apply_patch" || value === "simulate" || value === "tune";
+  return value === "rulebook_run" || value === "rulebook_run_pdf" || value === "apply_patch" || value === "simulate" || value === "tune";
 }

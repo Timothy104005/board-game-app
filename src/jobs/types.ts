@@ -1,13 +1,21 @@
 import type { IRPatch } from "../ir/patch.js";
 import type { BotsMode } from "../sim/botConfig.js";
 
-export type JobType = "rulebook_run" | "apply_patch" | "simulate" | "tune";
+export type JobType = "rulebook_run" | "rulebook_run_pdf" | "apply_patch" | "simulate" | "tune";
 export type RunStatus = "queued" | "running" | "succeeded" | "failed";
 
 export interface RulebookRunPayload {
   rulebookText?: string;
   seed?: string;
   matches?: number;
+  maxTurns?: number;
+}
+
+export interface RulebookRunPdfPayload {
+  uploadId: string;
+  pdfPath?: string;
+  seed?: string;
+  games?: number;
   maxTurns?: number;
 }
 
@@ -36,7 +44,7 @@ export interface TunePayload {
   spaceId?: "mini_splendor";
 }
 
-export type JobPayload = RulebookRunPayload | ApplyPatchPayload | SimulatePayload | TunePayload;
+export type JobPayload = RulebookRunPayload | RulebookRunPdfPayload | ApplyPatchPayload | SimulatePayload | TunePayload;
 
 export interface ProjectRecord {
   id: string;
@@ -78,6 +86,9 @@ export interface RunManifest {
   metrics?: Record<string, unknown>;
   notes?: string[];
   error?: string;
+  sourceType?: "text" | "pdf";
+  uploadId?: string;
+  pdfSha256?: string;
 }
 
 export interface CreateProjectInput {

@@ -1,5 +1,6 @@
 import { isAbsolute, resolve } from "node:path";
 import { getJobsRoot, getRepoRoot } from "../paths";
+import { getProjectRunsDir } from "../rulebook/pdfArtifacts";
 import { createJobsStore } from "./store";
 import type { CreateProjectInput, JobPayload, JobType, ProjectRecord, RunRecord, RunStatus } from "./types";
 
@@ -96,7 +97,7 @@ export function enqueue(jobType: JobType, projectId: string, payload: JobPayload
     const now = timestamp();
     const runId = formatId("r", runsState.nextRunNumber);
     runsState.nextRunNumber += 1;
-    const runDir = resolve(store.rootDir, runId);
+    const runDir = jobType === "rulebook_run_pdf" ? resolve(getProjectRunsDir(projectId), runId) : resolve(store.rootDir, runId);
     const record: RunRecord = {
       id: runId,
       projectId,
