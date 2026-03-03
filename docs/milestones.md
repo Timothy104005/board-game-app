@@ -6,7 +6,7 @@
 | M2 IR v0 + Compiler | DONE | Zod schema, checker, compileToGameModule, integration tests | Commands: `npm test -- --coverage`, `npm run rb:run:tictactoe`<br>Artifacts: `artifacts/rulebook_run/*.ir.json` | Add more action kinds with checker parity |
 | M3 Rulebook Pipeline + Simulation Workflow | DONE | Rulebook extraction quality, deterministic compile/sim pipeline, artifactized reports | Commands: `npm run rb:run:tictactoe`, `npm run rb:run:pig`<br>Artifacts: `artifacts/rulebook_run/*.sim.summary.json`, `artifacts/rulebook_run/*.replay.sample.json` | Keep extraction quality visible with regression tests |
 | M4 Tuning + Restricted Patch Engine | DONE | Fairness/turn-length tuning and safe patch policy | Commands: `npm run tune:smoke`, `npm test -- --coverage`<br>Artifacts: `artifacts/tuning/*/report.json`, `artifacts/jobs/*/tune.report.json` | Expand tuning spaces with stricter acceptance thresholds |
-| M5 Productization (Web SaaS) | IN PROGRESS | Next.js dashboard, durable jobs queue, worker daemon, replay/artifact viewer, E2E and split CI | Commands: `npm run jobs:worker`, `cd apps/web && npm run dev`, `npm run jobs:smoke`, `cd apps/web && npm test`<br>Artifacts: `artifacts/jobs/*`, `artifacts/schoolday/*/summary.json` | Continue deployment packaging and operational runbook hardening |
+| M5 Productization (Web SaaS) | IN PROGRESS | Next.js dashboard, durable jobs queue, worker daemon, PDF upload ingestion, replay/artifact viewer, E2E and split CI | Commands: `npm run jobs:worker`, `cd apps/web && npm run dev`, `npm run jobs:smoke`, `cd apps/web && npm test -- --grep "critical flow"`<br>Artifacts: `artifacts/jobs/*`, `artifacts/projects/*/uploads/*.pdf`, `artifacts/projects/*/runs/*`, `artifacts/schoolday/*/summary.json` | Continue deployment packaging and operational runbook hardening |
 
 ## Checklist
 
@@ -23,6 +23,6 @@
 3. Open `http://localhost:3000/projects/new`
 4. Create project from rulebook text
 5. Run `Run Rulebook` then open run page artifacts
-6. Run `Apply Patch` with deterministic JSON patch payload
-7. Run `Run Sim` and open replay viewer link
+6. Upload PDF rulebook on `/projects/[id]` and run `Run from PDF`
+7. Open run page and verify `ir`, `gaps`, `patchTemplate`, `sampleReplay`
 8. `npm run jobs:smoke`

@@ -74,3 +74,24 @@ Convenience scripts:
 - Pipeline behavior is deterministic for fixed input + seed.
 - No external APIs or network calls are used.
 - A future UI can guide users through editing patch templates and rerunning validation.
+
+## PDF Ingestion v0
+
+PDF rulebooks can be uploaded in Web MVP and converted to plain text before running the same deterministic pipeline.
+
+1. Upload endpoint: `POST /api/projects/[id]/upload-pdf`
+2. Stored file path: `artifacts/projects/<projectId>/uploads/<uploadId>.pdf`
+3. Extracted text path: `artifacts/projects/<projectId>/uploads/<uploadId>.extracted.txt`
+4. Job type: `rulebook_run_pdf`
+5. Run artifact path: `artifacts/projects/<projectId>/runs/<runId>/`
+
+Output artifacts follow the same IR workflow:
+
+- `rulebook.extracted.txt`
+- `rulebook.ir.json`
+- `rulebook.gaps.json`
+- `rulebook.patch.template.json`
+- `rulebook.sim.summary.json` (when simulation is available)
+- `rulebook.replay.sample.json` (when simulation is available)
+
+Scope note: v0 extraction is text-only and does not include OCR.
