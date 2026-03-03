@@ -1,0 +1,45 @@
+
+> board-game-web@0.1.0 build
+> next build
+
+  ▲ Next.js 14.2.35
+  - Experiments (use with caution):
+    · externalDir
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/6) ...
+   Generating static pages (1/6) 
+   Generating static pages (2/6) 
+   Generating static pages (4/6) 
+ ✓ Generating static pages (6/6)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                Size     First Load JS
+┌ ƒ /                                      179 B          96.1 kB
+├ ○ /_not-found                            873 B          88.1 kB
+├ ƒ /api/projects                          0 B                0 B
+├ ƒ /api/projects/[id]                     0 B                0 B
+├ ƒ /api/projects/[id]/apply-patch         0 B                0 B
+├ ƒ /api/projects/[id]/run-rulebook        0 B                0 B
+├ ƒ /api/projects/[id]/simulate            0 B                0 B
+├ ƒ /api/projects/[id]/tune                0 B                0 B
+├ ƒ /api/projects/[id]/upload-pdf          0 B                0 B
+├ ƒ /api/runs/[runId]                      0 B                0 B
+├ ƒ /projects/[id]                         994 B          96.9 kB
+├ ƒ /projects/new                          179 B          96.1 kB
+├ ƒ /replays/[replayId]                    997 B          96.9 kB
+├ ƒ /runs/[runId]                          1.06 kB          97 kB
+└ ƒ /runs/[runId]/artifacts/[artifactKey]  179 B          96.1 kB
++ First Load JS shared by all              87.2 kB
+  ├ chunks/117-da33f89511cbd4ac.js         31.7 kB
+  ├ chunks/fd9d1056-5d0c434f4506d830.js    53.6 kB
+  └ other shared chunks (total)            1.86 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

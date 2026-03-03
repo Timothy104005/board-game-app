@@ -1,0 +1,20 @@
+﻿d7e0292 docs: proposal/milestones updates
+f2f4c17 test(e2e): PDF upload flow
+828c8ee feat(web): upload-pdf route + UI wiring
+fbd65d2 feat(jobs): rulebook_run_pdf end-to-end artifacts
+47e9c71 feat(rulebook): pdfExtract + tests
+5cc986b chore: checkpoint before pdf ingestion
+72b2e28 chore(ci/docs): CI split + docs/proposal/milestones cleanup
+c5b6d2c test(e2e): stable Playwright flow with worker integration
+7cfa31d feat(web): MVP pages + replay viewer + logs tail
+2ee06ae fix(jobs): unify paths + durable store atomicity
+aed8fe8 fix(jobs): unify paths + durable store atomicity
+26286e3 chore(m5): ignore playwright artifacts
+98f9dc2 feat(m5): web+jobs initial implementation
+453b1cf wip(m5): web+jobs scaffold (checkpoint)
+9ead0f1 chore: checkpoint before M5 web MVP
+4acd9bd chore(soak/ci): overnight verifier + CI env knobs
+ad746e5 feat(tuning): parallel candidate evaluation
+ae0e57b test(fuzz): property-based tests via fast-check
+78c8514 feat(cache): evaluation cache keyed by stable hash
+c71b95e feat(sim): worker pool + parallel batch with deterministic aggregation
