@@ -1,28 +1,35 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PdfUploadPanel } from "@/components/PdfUploadPanel";
 import { getProjectRecord, listRunRecords } from "@/lib/coreJobs";
 import { readArtifactText, getRunStatusResponse } from "@/lib/runDetail";
 import {
   enqueueApplyPatchAction,
+  enqueueRulebookRunPdfAction,
   enqueueRulebookRunAction,
   enqueueSimulateAction,
   enqueueTuneAction
 } from "./actions";
+import { isValidUploadId } from "../../../../../src/rulebook/pdfArtifacts";
 
 export const dynamic = "force-dynamic";
 
-export default function ProjectPage({ params }: { params: { id: string } }) {
+export default function ProjectPage({ params, searchParams }: { params: { id: string }; searchParams?: { uploadId?: string } }) {
   const project = getProjectRecord(params.id);
   if (!project) {
     notFound();
   }
+  const selectedUploadId =
+    typeof searchParams?.uploadId === "string" && isValidUploadId(searchParams.uploadId) ? searchParams.uploadId : null;
   const runs = listRunRecords(project.id).slice().reverse().slice(0, 10);
   const runRows = runs.map((run) => {
     const detail = getRunStatusResponse(run.id);
     const hasReplay = detail?.artifactLinks.some((artifact) => artifact.key.toLowerCase().includes("replay")) ?? false;
+    const sourceType = detail?.manifest?.sourceType ?? (run.jobType === "rulebook_run" ? "text" : "-");
     return {
       run,
-      hasReplay
+      hasReplay,
+      sourceType
     };
   });
   const latestRunStatus = project.latestRunId ? getRunStatusResponse(project.latestRunId) : null;
@@ -49,6 +56,25 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
 
       <div className="panel">
         <h2>Run Controls</h2>
+        <PdfUploadPanel projectId={project.id} initialUploadId={selectedUploadId ?? undefined} />
+        {selectedUploadId ? (
+          <form action={enqueueRulebookRunPdfAction} className="panel">
+            <h3>Run from PDF</h3>
+            <input type="hidden" name="projectId" value={project.id} />
+            <input type="hidden" name="uploadId" value={selectedUploadId} />
+            <label>Upload ID</label>
+            <input type="text" className="mono" value={selectedUploadId} readOnly />
+            <label>Seed</label>
+            <input type="text" name="seed" defaultValue={project.seedDefault} />
+            <label>Games</label>
+            <input type="text" name="games" defaultValue="20" />
+            <label>Max Turns</label>
+            <input type="text" name="maxTurns" defaultValue="80" />
+            <button type="submit">Run from PDF</button>
+          </form>
+        ) : (
+          <p>Upload a PDF rulebook to enable Run from PDF.</p>
+        )}
         <div className="row">
           <form action={enqueueRulebookRunAction} className="panel" style={{ flex: 1, minWidth: 280 }}>
             <h3>Run Rulebook</h3>
@@ -131,6 +157,7 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
               <tr>
                 <th>Run ID</th>
                 <th>Type</th>
+                <th>Source</th>
                 <th>Status</th>
                 <th>Created</th>
                 <th>Open</th>
@@ -138,10 +165,11 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
               </tr>
             </thead>
             <tbody>
-              {runRows.map(({ run, hasReplay }) => (
+              {runRows.map(({ run, hasReplay, sourceType }) => (
                 <tr key={run.id}>
                   <td className="mono">{run.id}</td>
                   <td className="mono">{run.jobType}</td>
+                  <td className="mono">{sourceType}</td>
                   <td className="mono">{run.status}</td>
                   <td className="mono">{run.createdAt}</td>
                   <td>

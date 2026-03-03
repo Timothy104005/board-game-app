@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { enqueueRun, getProjectRecord } from "@/lib/coreJobs";
+import { isValidUploadId } from "../../../../../src/rulebook/pdfArtifacts";
 
 interface LocalPatch {
   operations: Array<{
@@ -37,6 +38,14 @@ const tuneSchema = z.object({
   poolSize: z.coerce.number().int().positive().default(2)
 });
 
+const rulebookRunPdfSchema = z.object({
+  projectId: z.string().min(1),
+  uploadId: z.string().min(1),
+  seed: z.string().min(1).default("42"),
+  games: z.coerce.number().int().positive().default(20),
+  maxTurns: z.coerce.number().int().positive().default(80)
+});
+
 export async function enqueueRulebookRunAction(formData: FormData): Promise<void> {
   const parsed = rulebookRunSchema.parse({
     projectId: String(formData.get("projectId") ?? ""),
@@ -49,6 +58,28 @@ export async function enqueueRulebookRunAction(formData: FormData): Promise<void
   const runId = enqueueRun("rulebook_run", parsed.projectId, {
     seed: parsed.seed,
     matches: parsed.matches,
+    maxTurns: parsed.maxTurns
+  });
+  redirect(`/runs/${runId}`);
+}
+
+export async function enqueueRulebookRunPdfAction(formData: FormData): Promise<void> {
+  const parsed = rulebookRunPdfSchema.parse({
+    projectId: String(formData.get("projectId") ?? ""),
+    uploadId: String(formData.get("uploadId") ?? ""),
+    seed: String(formData.get("seed") ?? "42"),
+    games: Number(formData.get("games") ?? 20),
+    maxTurns: Number(formData.get("maxTurns") ?? 80)
+  });
+  ensureProjectExists(parsed.projectId);
+  if (!isValidUploadId(parsed.uploadId)) {
+    throw new Error(`invalid uploadId: ${parsed.uploadId}`);
+  }
+
+  const runId = enqueueRun("rulebook_run_pdf", parsed.projectId, {
+    uploadId: parsed.uploadId,
+    seed: parsed.seed,
+    games: parsed.games,
     maxTurns: parsed.maxTurns
   });
   redirect(`/runs/${runId}`);

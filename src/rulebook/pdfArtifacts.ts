@@ -1,5 +1,5 @@
 import { resolve, sep } from "node:path";
-import { resolveArtifactsPath } from "../paths.js";
+import { resolveArtifactsPath } from "../paths";
 
 const UPLOAD_ID_PATTERN = /^u[a-f0-9]{12}$/;
 

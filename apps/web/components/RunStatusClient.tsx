@@ -83,6 +83,14 @@ export function RunStatusClient({ runId, initial }: { runId: string; initial: Ru
           {statusClass}
         </span>
       </p>
+      <p>
+        <strong>Source:</strong> <span className="mono">{data.manifest?.sourceType ?? "text"}</span>
+      </p>
+      {data.manifest?.uploadId ? (
+        <p>
+          <strong>Upload ID:</strong> <span className="mono">{data.manifest.uploadId}</span>
+        </p>
+      ) : null}
       {data.run.error ? (
         <p>
           <strong>Error:</strong> <span className="mono">{data.run.error}</span>

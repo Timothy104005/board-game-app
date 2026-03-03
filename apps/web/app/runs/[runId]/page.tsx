@@ -22,6 +22,14 @@ export default function RunPage({ params }: { params: { runId: string } }) {
           <strong>Job Type:</strong> <span className="mono">{status.run.jobType}</span>
         </p>
         <p>
+          <strong>Source:</strong> <span className="mono">{status.manifest?.sourceType ?? "text"}</span>
+        </p>
+        {status.manifest?.uploadId ? (
+          <p>
+            <strong>Upload ID:</strong> <span className="mono">{status.manifest.uploadId}</span>
+          </p>
+        ) : null}
+        <p>
           <Link href={`/projects/${status.run.projectId}`}>Back to Project</Link>
         </p>
       </div>
