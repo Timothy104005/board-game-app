@@ -1,24 +1,22 @@
-# Current Status
+# 專案現況摘要
 
-## Repository Capabilities (Now)
+## 1) 已具備能力
 
-- ????????? `irDraft`?`gaps`?`patchTemplate`?
-- ????? IR ??? `GameModule` ??????
-- ?? random/greedy bots ? batch simulation ?????
-- ?? golden regression tests,???????
+- Rulebook（text/pdf）可進入 IR pipeline，產出 `irDraft`、`gaps`、`patchTemplate`。
+- IR 可編譯成 `GameModule` 並執行 deterministic 模擬。
+- Web MVP 可建立專案、觸發任務、查看 run 狀態與 replay。
+- Jobs/worker 採耐久化 queue/store，run 皆有 manifest 與 logs。
 
-## Command Expectations
+## 2) 目前驗證命令
 
 - `npm test -- --coverage`
-  - ??:??????,coverage ?????
 - `npm run sim:tictactoe`
-  - ??:?? winRates/averageTurns/actionDistribution,??? `artifacts/replays/`?
+- `npm run sim:splendor`
 - `npm run rb:run:tictactoe`
-  - ??:?? IR/gaps/patchTemplate/sim summary/sample replay ? `artifacts/rulebook_run/`?
 - `npm run rb:run:pig`
-  - ??:??,?????? seed ?????
+- `cd apps/web && npm run build`
 
-## Determinism Statement
+## 3) 決定性聲明
 
-? repo ? determinism ???:**?? seed + ???? + ?????? => ?? replay hash ? aggregate metrics**?  
-??????????(?? `src/engine/invariantGate.ts` ? `src/sim/sim.test.ts`?rulebook/IR integration tests)?
+在固定 seed 與固定輸入下，核心流程結果可重現，並可由 artifacts 與 replay 進行追溯。  
+相關驗證已納入測試與腳本流程。

@@ -1,47 +1,29 @@
-# Milestone 5 Productization Spec
+# 產品化規格（Productization）
 
-## 1) Recommended Runtime Model
+本文件描述目前可運行拓撲與未來 SaaS 化方向。
 
-??? **Web SaaS**:
-- Backend:?? rulebook pipeline?IR ?????? artifacts ???
-- Frontend:??????????????????
+## 1) 目前運行拓撲（Local Dev）
 
-## 2) Worker Queue for 1k/10k Simulations
+- Terminal A：`npm run jobs:worker`
+- Terminal B：`cd apps/web && npm run dev`
+- Web 透過 Route Handlers/Server Actions enqueue 任務。
+- Worker 消化 queue，寫入 manifest/log/artifacts。
 
-- API ??????,?? queue?
-- Worker ?????(?????)?
-- Job ??:queued / running / done / failed?
-- ??????? summary ? artifacts ???
+## 2) 未來 SaaS 拓撲（Planned）
 
-## 3) Storage Plan
+- Web/API 層與 worker 層可分離部署。
+- Queue 與 artifact storage 可替換成託管服務。
+- 保留 deterministic run 契約與 manifest 結構。
 
-???? -> ??????:
-- Project
-- Version
-- Rulebook source
-- IR draft / patched IR
-- Gap reports
-- Patch history
-- Replay artifacts
-- Metrics summary
+## 3) 非功能需求（NFR）
 
-## 4) Export Formats
+- Determinism：固定 seed 下結果可重現。
+- Auditability：每個 run 要有 `manifest.json` + `logs.txt`。
+- Privacy：上傳規則內容僅限本系統使用，不對外再散布。
+- Reliability：worker 重啟後可回收中斷任務並繼續處理。
 
-- ???:JSON(?????)
-- ??:PDF(??????)
+## 4) 驗證命令
 
-## 5) Minimal UI Pages
-
-1. Project List
-2. Upload Rulebook
-3. IR Review(gaps + patch)
-4. Run Simulation
-5. Dashboard(metrics + comparisons)
-6. Replay Viewer
-
-## 6) Non-Functional Requirements
-
-- Determinism:?? seed ????????
-- Audit Logs:??????????/patch/?????
-- Privacy:????????????
-- Rate Limits:???????????
+- `npm run jobs:smoke`
+- `npm run verify:schoolday`
+- `cd apps/web && npm test`
