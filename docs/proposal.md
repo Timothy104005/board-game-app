@@ -153,4 +153,4 @@
 | 模擬指標可產生 | [sim_tictactoe.txt](./evidence/sim_tictactoe.txt), [sim_splendor.txt](./evidence/sim_splendor.txt) | Done |
 | Web 可建置 | [web_build.txt](./evidence/web_build.txt) | Done |
 | Durable jobs + Web productization 完成度 | [git_log.txt](./evidence/git_log.txt) | In progress |
-| 合規流程（法務/刪除流程）制度化 | [git_status.txt](./evidence/git_status.txt) | TODO |
+| 合規流程（法務/刪除流程）制度化 | [git_status.txt](./evidence/git_status.txt) | In progress |

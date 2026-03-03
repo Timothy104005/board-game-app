@@ -1,28 +1,19 @@
-# Milestones
+# 里程碑追蹤（Milestones）
 
-| Milestone | Status | Scope | Evidence | Next Actions |
-|---|---|---|---|---|
-| M1 Engine Contract + Invariants | DONE | Engine contract, invariant gate, deterministic step model | Commands: `npm test -- --coverage`<br>Artifacts: `artifacts/replays/*.json` | Keep deterministic checks green while expanding games |
-| M2 IR v0 + Compiler | DONE | Zod schema, checker, compileToGameModule, integration tests | Commands: `npm test -- --coverage`, `npm run rb:run:tictactoe`<br>Artifacts: `artifacts/rulebook_run/*.ir.json` | Add more action kinds with checker parity |
-| M3 Rulebook Pipeline + Simulation Workflow | DONE | Rulebook extraction quality, deterministic compile/sim pipeline, artifactized reports | Commands: `npm run rb:run:tictactoe`, `npm run rb:run:pig`<br>Artifacts: `artifacts/rulebook_run/*.sim.summary.json`, `artifacts/rulebook_run/*.replay.sample.json` | Keep extraction quality visible with regression tests |
-| M4 Tuning + Restricted Patch Engine | DONE | Fairness/turn-length tuning and safe patch policy | Commands: `npm run tune:smoke`, `npm test -- --coverage`<br>Artifacts: `artifacts/tuning/*/report.json`, `artifacts/jobs/*/tune.report.json` | Expand tuning spaces with stricter acceptance thresholds |
-| M5 Productization (Web SaaS) | IN PROGRESS | Next.js dashboard, durable jobs queue, worker daemon, PDF upload ingestion, replay/artifact viewer, E2E and split CI | Commands: `npm run jobs:worker`, `cd apps/web && npm run dev`, `npm run jobs:smoke`, `cd apps/web && npm test -- --grep "critical flow"`<br>Artifacts: `artifacts/jobs/*`, `artifacts/projects/*/uploads/*.pdf`, `artifacts/projects/*/runs/*`, `artifacts/schoolday/*/summary.json` | Continue deployment packaging and operational runbook hardening |
+## 里程碑總表
 
-## Checklist
+| 里程碑 | 狀態 | Purpose | Deliverables | Acceptance Commands | Repo 證據 |
+|---|---|---|---|---|---|
+| M1 引擎契約與不變量 | DONE | 建立可重現執行核心 | engine contract、invariant gate、基本遊戲執行模型 | `npm test -- --coverage` | [npm_test.txt](./evidence/npm_test.txt) |
+| M2 IR v0 與編譯器 | DONE | 建立 IR schema/checker/compiler | IR v0 schema、checker、compileToGameModule、integration tests | `npm test -- --coverage`<br>`npm run rb:run:tictactoe` | [npm_test.txt](./evidence/npm_test.txt)<br>[rb_run_tictactoe.txt](./evidence/rb_run_tictactoe.txt) |
+| M3 Rulebook 流水線與模擬 | DONE | 打通 rulebook -> IR -> simulate | `ir/gaps/patchTemplate/sim/replay` 產物輸出 | `npm run rb:run:tictactoe`<br>`npm run rb:run:pig`<br>`npm run sim:tictactoe` | [rb_run_tictactoe.txt](./evidence/rb_run_tictactoe.txt)<br>[rb_run_pig.txt](./evidence/rb_run_pig.txt)<br>[sim_tictactoe.txt](./evidence/sim_tictactoe.txt) |
+| M4 調參與受限 Patch Engine | DONE | 提供可控 A/B 優化流程 | tuner、objective、restricted patch ops、報告輸出 | `npm test -- --coverage`<br>`npm run sim:splendor` | [npm_test.txt](./evidence/npm_test.txt)<br>[sim_splendor.txt](./evidence/sim_splendor.txt) |
+| M5 Web MVP + Durable Jobs | IN PROGRESS | 產品化任務執行與可視化 | Next.js Web、queue/store/worker、PDF ingestion、E2E、CI 分層 | `npm test -- --coverage`<br>`cd apps/web && npm run build` | [npm_test.txt](./evidence/npm_test.txt)<br>[web_build.txt](./evidence/web_build.txt)<br>[git_log.txt](./evidence/git_log.txt) |
 
-- [x] M1: Engine contract + no-dead-end/determinism/resource-bound gates
-- [x] M2: IR schema/checker/compiler + integration tests
-- [x] M3: Rulebook workflow operational hardening and packaging
-- [x] M4: Tuning and restricted patch engine automation
-- [ ] M5: SaaS productization and operations (in progress via `apps/web` + `src/jobs`)
-
-## M5 Evidence Commands
+## M5 驗證流程（本機）
 
 1. `npm run jobs:worker`
 2. `cd apps/web && npm run dev`
-3. Open `http://localhost:3000/projects/new`
-4. Create project from rulebook text
-5. Run `Run Rulebook` then open run page artifacts
-6. Upload PDF rulebook on `/projects/[id]` and run `Run from PDF`
-7. Open run page and verify `ir`, `gaps`, `patchTemplate`, `sampleReplay`
-8. `npm run jobs:smoke`
+3. 建立專案並執行 `Run Rulebook` 或 `Run from PDF`
+4. 在 run 頁面確認 `ir`、`gaps`、`patchTemplate`、`sampleReplay`
+5. `npm run jobs:smoke`

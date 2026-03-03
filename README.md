@@ -1,30 +1,12 @@
-# Rulebook Compiler Sandbox
+# Board Game Compiler Sandbox
 
-Deterministic board-game tooling: `rulebook text -> IR draft -> compile -> simulate`.
-The repo includes invariant gates, seeded bots, replay artifacts, patch templates, and golden regressions.
-Use it to validate rules, compare balance, and prepare game specs for collaboration.
+這個 repo 是一個可重現的規則編譯與模擬平台：將 rulebook（文字/PDF）轉為 IR，編譯成可執行遊戲模組，再產生模擬與 replay 產物。  
+詳細企劃與操作說明請見：[docs/proposal.md](./docs/proposal.md)、[docs/web_mvp.md](./docs/web_mvp.md)。
 
 ## Quickstart
 
 ```bash
 npm install
-npm test
-npm run sim:tictactoe
+npm test -- --coverage
+npm run rb:run:tictactoe
 ```
-
-## Key Commands
-
-- `npm test -- --coverage`
-- `npm run sim:tictactoe`
-- `npm run sim:splendor`
-- `npm run rb:run:tictactoe`
-- `npm run rb:run:splendor`
-- `npm run rb:run:connect4`
-- `npm run rb:run:nim`
-- `npm run rb:run:pig`
-
-## Artifact Output Paths
-
-- `artifacts/replays/`
-- `artifacts/rulebook_run/`
-- `artifacts/soak/`
